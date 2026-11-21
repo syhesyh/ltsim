@@ -1,0 +1,509 @@
+{
+  "schema": "lts-result/0.1",
+  "total_cycles": 551,
+  "bounds": {
+    "path": 525,
+    "resource": 165,
+    "resource_exact": "2639/16",
+    "resource_name": "srf.W2E",
+    "lb": 525,
+    "gap": 0.049524,
+    "mxm_roofline": 128.0
+  },
+  "chains": [
+    {
+      "id": "c0",
+      "start": 0,
+      "len": 48,
+      "end": 48,
+      "rate": 16.0,
+      "rate_exact": "16",
+      "bound_by": {
+        "kind": "source"
+      }
+    },
+    {
+      "id": "c1",
+      "start": 0,
+      "len": 48,
+      "end": 48,
+      "rate": 16.0,
+      "rate_exact": "16",
+      "bound_by": {
+        "kind": "source"
+      }
+    },
+    {
+      "id": "c2",
+      "start": 0,
+      "len": 49,
+      "end": 49,
+      "rate": 16.0,
+      "rate_exact": "16",
+      "bound_by": {
+        "kind": "source"
+      }
+    },
+    {
+      "id": "c3",
+      "start": 0,
+      "len": 49,
+      "end": 49,
+      "rate": 16.0,
+      "rate_exact": "16",
+      "bound_by": {
+        "kind": "source"
+      }
+    },
+    {
+      "id": "c4",
+      "start": 47,
+      "len": 265,
+      "end": 312,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "resource",
+        "resource": "srf.E2W",
+        "blocker": "c0"
+      }
+    },
+    {
+      "id": "c5",
+      "start": 47,
+      "len": 265,
+      "end": 312,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "resource",
+        "resource": "srf.E2W",
+        "blocker": "c0"
+      }
+    },
+    {
+      "id": "c6",
+      "start": 312,
+      "len": 239,
+      "end": 551,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "mem",
+          "a0.h.wr",
+          "b.h0.rd"
+        ],
+        "from_chain": "c4"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "w1n0.rd",
+      "chain": "c0",
+      "start": 0,
+      "issue_end": 20,
+      "done": 21
+    },
+    {
+      "id": "w1n0.lw",
+      "chain": "c0",
+      "start": 9,
+      "issue_end": 29,
+      "done": 48
+    },
+    {
+      "id": "w1n1.rd",
+      "chain": "c1",
+      "start": 0,
+      "issue_end": 20,
+      "done": 21
+    },
+    {
+      "id": "w1n1.lw",
+      "chain": "c1",
+      "start": 9,
+      "issue_end": 29,
+      "done": 48
+    },
+    {
+      "id": "w2k0.rd",
+      "chain": "c2",
+      "start": 0,
+      "issue_end": 20,
+      "done": 21
+    },
+    {
+      "id": "w2k0.lw",
+      "chain": "c2",
+      "start": 10,
+      "issue_end": 30,
+      "done": 49
+    },
+    {
+      "id": "w2k1.rd",
+      "chain": "c3",
+      "start": 0,
+      "issue_end": 20,
+      "done": 21
+    },
+    {
+      "id": "w2k1.lw",
+      "chain": "c3",
+      "start": 10,
+      "issue_end": 30,
+      "done": 49
+    },
+    {
+      "id": "a0.x.rd",
+      "chain": "c4",
+      "start": 47,
+      "issue_end": 175,
+      "done": 176
+    },
+    {
+      "id": "a0.acc",
+      "chain": "c4",
+      "start": 56,
+      "issue_end": 184,
+      "done": 209
+    },
+    {
+      "id": "a0.b1.rd",
+      "chain": "c4",
+      "start": 99,
+      "issue_end": 227,
+      "done": 228
+    },
+    {
+      "id": "a0.vxm",
+      "chain": "c4",
+      "start": 102,
+      "issue_end": 230,
+      "done": 290
+    },
+    {
+      "id": "a0.h.wr",
+      "chain": "c4",
+      "start": 164,
+      "issue_end": 292,
+      "done": 312
+    },
+    {
+      "id": "a1.x.rd",
+      "chain": "c5",
+      "start": 47,
+      "issue_end": 175,
+      "done": 176
+    },
+    {
+      "id": "a1.acc",
+      "chain": "c5",
+      "start": 56,
+      "issue_end": 184,
+      "done": 209
+    },
+    {
+      "id": "a1.b1.rd",
+      "chain": "c5",
+      "start": 99,
+      "issue_end": 227,
+      "done": 228
+    },
+    {
+      "id": "a1.vxm",
+      "chain": "c5",
+      "start": 102,
+      "issue_end": 230,
+      "done": 290
+    },
+    {
+      "id": "a1.h.wr",
+      "chain": "c5",
+      "start": 164,
+      "issue_end": 292,
+      "done": 312
+    },
+    {
+      "id": "b.h0.rd",
+      "chain": "c6",
+      "start": 312,
+      "issue_end": 440,
+      "done": 441
+    },
+    {
+      "id": "b.h1.rd",
+      "chain": "c6",
+      "start": 312,
+      "issue_end": 440,
+      "done": 441
+    },
+    {
+      "id": "b.acc0",
+      "chain": "c6",
+      "start": 322,
+      "issue_end": 450,
+      "done": 475
+    },
+    {
+      "id": "b.acc1",
+      "chain": "c6",
+      "start": 322,
+      "issue_end": 450,
+      "done": 475
+    },
+    {
+      "id": "b.b2.rd",
+      "chain": "c6",
+      "start": 366,
+      "issue_end": 494,
+      "done": 495
+    },
+    {
+      "id": "b.vxm",
+      "chain": "c6",
+      "start": 369,
+      "issue_end": 497,
+      "done": 529
+    },
+    {
+      "id": "b.y.wr",
+      "chain": "c6",
+      "start": 403,
+      "issue_end": 531,
+      "done": 551
+    }
+  ],
+  "resources": [
+    {
+      "id": "mem.E.rd",
+      "kind": "counter",
+      "cap": 44,
+      "busy": 148,
+      "peak": 32,
+      "utilization": 0.036958
+    },
+    {
+      "id": "mem.E.wr",
+      "kind": "counter",
+      "cap": 44,
+      "busy": 128,
+      "peak": 2,
+      "utilization": 0.010559
+    },
+    {
+      "id": "mem.W.rd",
+      "kind": "counter",
+      "cap": 44,
+      "busy": 328,
+      "peak": 32,
+      "utilization": 0.100313
+    },
+    {
+      "id": "mem.W.wr",
+      "kind": "counter",
+      "cap": 44,
+      "busy": 128,
+      "peak": 1,
+      "utilization": 0.00528
+    },
+    {
+      "id": "mxm.e0.compute",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 128,
+      "peak": 1,
+      "utilization": 0.232305
+    },
+    {
+      "id": "mxm.e0.weight",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 20,
+      "peak": 1,
+      "utilization": 0.036298
+    },
+    {
+      "id": "mxm.e1.compute",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 128,
+      "peak": 1,
+      "utilization": 0.232305
+    },
+    {
+      "id": "mxm.e1.weight",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 20,
+      "peak": 1,
+      "utilization": 0.036298
+    },
+    {
+      "id": "mxm.w0.compute",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 128,
+      "peak": 1,
+      "utilization": 0.232305
+    },
+    {
+      "id": "mxm.w0.weight",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 20,
+      "peak": 1,
+      "utilization": 0.036298
+    },
+    {
+      "id": "mxm.w1.compute",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 128,
+      "peak": 1,
+      "utilization": 0.232305
+    },
+    {
+      "id": "mxm.w1.weight",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 20,
+      "peak": 1,
+      "utilization": 0.036298
+    },
+    {
+      "id": "srf.E2W",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 405,
+      "peak": 32,
+      "utilization": 0.18801
+    },
+    {
+      "id": "srf.W2E",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 481,
+      "peak": 32,
+      "utilization": 0.299342
+    },
+    {
+      "id": "sxm.e",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "sxm.w",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "vxm.alu",
+      "kind": "counter",
+      "cap": 16,
+      "busy": 256,
+      "peak": 12,
+      "utilization": 0.246824
+    }
+  ],
+  "srf": {
+    "W2E": {
+      "peak": 32,
+      "avg": 9.578947
+    },
+    "E2W": {
+      "peak": 32,
+      "avg": 6.016334
+    }
+  },
+  "critical_path": [
+    "c0",
+    "c4",
+    "c6"
+  ],
+  "critical_path_detail": [
+    {
+      "chain": "c0",
+      "start": 0,
+      "end": 48,
+      "bound_by": {
+        "kind": "source"
+      }
+    },
+    {
+      "chain": "c4",
+      "start": 47,
+      "end": 312,
+      "bound_by": {
+        "kind": "resource",
+        "resource": "srf.E2W",
+        "blocker": "c0"
+      }
+    },
+    {
+      "chain": "c6",
+      "start": 312,
+      "end": 551,
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "mem",
+          "a0.h.wr",
+          "b.h0.rd"
+        ],
+        "from_chain": "c4"
+      }
+    }
+  ],
+  "ops": [
+    {
+      "id": "fc1",
+      "start": 0,
+      "end": 209
+    },
+    {
+      "id": "fc2",
+      "start": 0,
+      "end": 529
+    },
+    {
+      "id": "b1",
+      "start": 99,
+      "end": 290
+    },
+    {
+      "id": "dq1",
+      "start": 102,
+      "end": 290
+    },
+    {
+      "id": "act",
+      "start": 102,
+      "end": 290
+    },
+    {
+      "id": "q1",
+      "start": 102,
+      "end": 312
+    },
+    {
+      "id": "b2",
+      "start": 366,
+      "end": 529
+    },
+    {
+      "id": "y",
+      "start": 369,
+      "end": 551
+    }
+  ],
+  "diagnostics": []
+}

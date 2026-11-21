@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ltsim"
+version = "0.1.0"
+description = "LTSim: a tile-level performance simulator for LPU-style statically scheduled accelerators"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["PyYAML"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+oracle = ["ortools"]          # CP-SAT oracle (ltsim/backend/oracle.py)；没装时 oracle 测试自动跳过
+
+[project.scripts]
+ltsim = "ltsim.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["ltsim*"]
+
+[tool.setuptools.package-data]
+"ltsim.machine" = ["*.yaml"]
+"ltsim.graph" = ["schema.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

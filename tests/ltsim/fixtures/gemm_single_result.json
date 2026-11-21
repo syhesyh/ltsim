@@ -1,0 +1,863 @@
+{
+  "schema": "lts-result/0.1",
+  "total_cycles": 826,
+  "bounds": {
+    "path": 773,
+    "resource": 512,
+    "resource_exact": "512",
+    "resource_name": "mxm.w0.compute",
+    "lb": 773,
+    "gap": 0.068564,
+    "mxm_roofline": 256.0
+  },
+  "chains": [
+    {
+      "id": "c0",
+      "start": 0,
+      "len": 48,
+      "end": 48,
+      "rate": 16.0,
+      "rate_exact": "16",
+      "bound_by": {
+        "kind": "source"
+      }
+    },
+    {
+      "id": "c1",
+      "start": 303,
+      "len": 48,
+      "end": 351,
+      "rate": 16.0,
+      "rate_exact": "16",
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "order",
+          "m1n0k0.acc",
+          "w.n0k1.lw"
+        ],
+        "from_chain": "c6"
+      }
+    },
+    {
+      "id": "c2",
+      "start": 0,
+      "len": 48,
+      "end": 48,
+      "rate": 16.0,
+      "rate_exact": "16",
+      "bound_by": {
+        "kind": "source"
+      }
+    },
+    {
+      "id": "c3",
+      "start": 330,
+      "len": 48,
+      "end": 378,
+      "rate": 16.0,
+      "rate_exact": "16",
+      "bound_by": {
+        "kind": "resource",
+        "resource": "srf.E2W",
+        "blocker": "c1"
+      }
+    },
+    {
+      "id": "c4",
+      "start": 47,
+      "len": 190,
+      "end": 237,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "resource",
+        "resource": "srf.E2W",
+        "blocker": "c0"
+      }
+    },
+    {
+      "id": "c5",
+      "start": 350,
+      "len": 190,
+      "end": 540,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "resource",
+        "resource": "srf.E2W",
+        "blocker": "c1"
+      }
+    },
+    {
+      "id": "c6",
+      "start": 175,
+      "len": 190,
+      "end": 365,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "order",
+          "m0n0k0.acc",
+          "m1n0k0.acc"
+        ],
+        "from_chain": "c4"
+      }
+    },
+    {
+      "id": "c7",
+      "start": 478,
+      "len": 190,
+      "end": 668,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "order",
+          "m0n0k1.acc",
+          "m1n0k1.acc"
+        ],
+        "from_chain": "c5"
+      }
+    },
+    {
+      "id": "c8",
+      "start": 47,
+      "len": 190,
+      "end": 237,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "resource",
+        "resource": "srf.E2W",
+        "blocker": "c0"
+      }
+    },
+    {
+      "id": "c9",
+      "start": 351,
+      "len": 190,
+      "end": 541,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "state",
+          "w.n1k1.lw",
+          "m0n1k1.acc"
+        ],
+        "from_chain": "c3"
+      }
+    },
+    {
+      "id": "c10",
+      "start": 175,
+      "len": 190,
+      "end": 365,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "order",
+          "m0n1k0.acc",
+          "m1n1k0.acc"
+        ],
+        "from_chain": "c8"
+      }
+    },
+    {
+      "id": "c11",
+      "start": 479,
+      "len": 190,
+      "end": 669,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "order",
+          "m0n1k1.acc",
+          "m1n1k1.acc"
+        ],
+        "from_chain": "c9"
+      }
+    },
+    {
+      "id": "c12",
+      "start": 540,
+      "len": 157,
+      "end": 697,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "mem",
+          "m0n0k1.wr",
+          "m0n0.p1.rd"
+        ],
+        "from_chain": "c5"
+      }
+    },
+    {
+      "id": "c13",
+      "start": 668,
+      "len": 157,
+      "end": 825,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "mem",
+          "m1n0k1.wr",
+          "m1n0.p1.rd"
+        ],
+        "from_chain": "c7"
+      }
+    },
+    {
+      "id": "c14",
+      "start": 541,
+      "len": 157,
+      "end": 698,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "mem",
+          "m0n1k1.wr",
+          "m0n1.p1.rd"
+        ],
+        "from_chain": "c9"
+      }
+    },
+    {
+      "id": "c15",
+      "start": 669,
+      "len": 157,
+      "end": 826,
+      "rate": 1.0,
+      "rate_exact": "1",
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "mem",
+          "m1n1k1.wr",
+          "m1n1.p1.rd"
+        ],
+        "from_chain": "c11"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "w.n0k0.rd",
+      "chain": "c0",
+      "start": 0,
+      "issue_end": 20,
+      "done": 21
+    },
+    {
+      "id": "w.n0k0.lw",
+      "chain": "c0",
+      "start": 9,
+      "issue_end": 29,
+      "done": 48
+    },
+    {
+      "id": "w.n0k1.rd",
+      "chain": "c1",
+      "start": 303,
+      "issue_end": 323,
+      "done": 324
+    },
+    {
+      "id": "w.n0k1.lw",
+      "chain": "c1",
+      "start": 312,
+      "issue_end": 332,
+      "done": 351
+    },
+    {
+      "id": "w.n1k0.rd",
+      "chain": "c2",
+      "start": 0,
+      "issue_end": 20,
+      "done": 21
+    },
+    {
+      "id": "w.n1k0.lw",
+      "chain": "c2",
+      "start": 9,
+      "issue_end": 29,
+      "done": 48
+    },
+    {
+      "id": "w.n1k1.rd",
+      "chain": "c3",
+      "start": 330,
+      "issue_end": 350,
+      "done": 351
+    },
+    {
+      "id": "w.n1k1.lw",
+      "chain": "c3",
+      "start": 339,
+      "issue_end": 359,
+      "done": 378
+    },
+    {
+      "id": "m0n0k0.x.rd",
+      "chain": "c4",
+      "start": 47,
+      "issue_end": 175,
+      "done": 176
+    },
+    {
+      "id": "m0n0k0.acc",
+      "chain": "c4",
+      "start": 56,
+      "issue_end": 184,
+      "done": 209
+    },
+    {
+      "id": "m0n0k0.wr",
+      "chain": "c4",
+      "start": 89,
+      "issue_end": 217,
+      "done": 237
+    },
+    {
+      "id": "m0n0k1.x.rd",
+      "chain": "c5",
+      "start": 350,
+      "issue_end": 478,
+      "done": 479
+    },
+    {
+      "id": "m0n0k1.acc",
+      "chain": "c5",
+      "start": 359,
+      "issue_end": 487,
+      "done": 512
+    },
+    {
+      "id": "m0n0k1.wr",
+      "chain": "c5",
+      "start": 392,
+      "issue_end": 520,
+      "done": 540
+    },
+    {
+      "id": "m1n0k0.x.rd",
+      "chain": "c6",
+      "start": 175,
+      "issue_end": 303,
+      "done": 304
+    },
+    {
+      "id": "m1n0k0.acc",
+      "chain": "c6",
+      "start": 184,
+      "issue_end": 312,
+      "done": 337
+    },
+    {
+      "id": "m1n0k0.wr",
+      "chain": "c6",
+      "start": 217,
+      "issue_end": 345,
+      "done": 365
+    },
+    {
+      "id": "m1n0k1.x.rd",
+      "chain": "c7",
+      "start": 478,
+      "issue_end": 606,
+      "done": 607
+    },
+    {
+      "id": "m1n0k1.acc",
+      "chain": "c7",
+      "start": 487,
+      "issue_end": 615,
+      "done": 640
+    },
+    {
+      "id": "m1n0k1.wr",
+      "chain": "c7",
+      "start": 520,
+      "issue_end": 648,
+      "done": 668
+    },
+    {
+      "id": "m0n1k0.x.rd",
+      "chain": "c8",
+      "start": 47,
+      "issue_end": 175,
+      "done": 176
+    },
+    {
+      "id": "m0n1k0.acc",
+      "chain": "c8",
+      "start": 56,
+      "issue_end": 184,
+      "done": 209
+    },
+    {
+      "id": "m0n1k0.wr",
+      "chain": "c8",
+      "start": 89,
+      "issue_end": 217,
+      "done": 237
+    },
+    {
+      "id": "m0n1k1.x.rd",
+      "chain": "c9",
+      "start": 351,
+      "issue_end": 479,
+      "done": 480
+    },
+    {
+      "id": "m0n1k1.acc",
+      "chain": "c9",
+      "start": 360,
+      "issue_end": 488,
+      "done": 513
+    },
+    {
+      "id": "m0n1k1.wr",
+      "chain": "c9",
+      "start": 393,
+      "issue_end": 521,
+      "done": 541
+    },
+    {
+      "id": "m1n1k0.x.rd",
+      "chain": "c10",
+      "start": 175,
+      "issue_end": 303,
+      "done": 304
+    },
+    {
+      "id": "m1n1k0.acc",
+      "chain": "c10",
+      "start": 184,
+      "issue_end": 312,
+      "done": 337
+    },
+    {
+      "id": "m1n1k0.wr",
+      "chain": "c10",
+      "start": 217,
+      "issue_end": 345,
+      "done": 365
+    },
+    {
+      "id": "m1n1k1.x.rd",
+      "chain": "c11",
+      "start": 479,
+      "issue_end": 607,
+      "done": 608
+    },
+    {
+      "id": "m1n1k1.acc",
+      "chain": "c11",
+      "start": 488,
+      "issue_end": 616,
+      "done": 641
+    },
+    {
+      "id": "m1n1k1.wr",
+      "chain": "c11",
+      "start": 521,
+      "issue_end": 649,
+      "done": 669
+    },
+    {
+      "id": "m0n0.p0.rd",
+      "chain": "c12",
+      "start": 540,
+      "issue_end": 668,
+      "done": 669
+    },
+    {
+      "id": "m0n0.p1.rd",
+      "chain": "c12",
+      "start": 540,
+      "issue_end": 668,
+      "done": 669
+    },
+    {
+      "id": "m0n0.sum",
+      "chain": "c12",
+      "start": 543,
+      "issue_end": 671,
+      "done": 675
+    },
+    {
+      "id": "m0n0.y.wr",
+      "chain": "c12",
+      "start": 549,
+      "issue_end": 677,
+      "done": 697
+    },
+    {
+      "id": "m1n0.p0.rd",
+      "chain": "c13",
+      "start": 668,
+      "issue_end": 796,
+      "done": 797
+    },
+    {
+      "id": "m1n0.p1.rd",
+      "chain": "c13",
+      "start": 668,
+      "issue_end": 796,
+      "done": 797
+    },
+    {
+      "id": "m1n0.sum",
+      "chain": "c13",
+      "start": 671,
+      "issue_end": 799,
+      "done": 803
+    },
+    {
+      "id": "m1n0.y.wr",
+      "chain": "c13",
+      "start": 677,
+      "issue_end": 805,
+      "done": 825
+    },
+    {
+      "id": "m0n1.p0.rd",
+      "chain": "c14",
+      "start": 541,
+      "issue_end": 669,
+      "done": 670
+    },
+    {
+      "id": "m0n1.p1.rd",
+      "chain": "c14",
+      "start": 541,
+      "issue_end": 669,
+      "done": 670
+    },
+    {
+      "id": "m0n1.sum",
+      "chain": "c14",
+      "start": 544,
+      "issue_end": 672,
+      "done": 676
+    },
+    {
+      "id": "m0n1.y.wr",
+      "chain": "c14",
+      "start": 550,
+      "issue_end": 678,
+      "done": 698
+    },
+    {
+      "id": "m1n1.p0.rd",
+      "chain": "c15",
+      "start": 669,
+      "issue_end": 797,
+      "done": 798
+    },
+    {
+      "id": "m1n1.p1.rd",
+      "chain": "c15",
+      "start": 669,
+      "issue_end": 797,
+      "done": 798
+    },
+    {
+      "id": "m1n1.sum",
+      "chain": "c15",
+      "start": 672,
+      "issue_end": 800,
+      "done": 804
+    },
+    {
+      "id": "m1n1.y.wr",
+      "chain": "c15",
+      "start": 678,
+      "issue_end": 806,
+      "done": 826
+    }
+  ],
+  "resources": [
+    {
+      "id": "mem.E.rd",
+      "kind": "counter",
+      "cap": 44,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "mem.E.wr",
+      "kind": "counter",
+      "cap": 44,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "mem.W.rd",
+      "kind": "counter",
+      "cap": 44,
+      "busy": 763,
+      "peak": 32,
+      "utilization": 0.176095
+    },
+    {
+      "id": "mem.W.wr",
+      "kind": "counter",
+      "cap": 44,
+      "busy": 670,
+      "peak": 16,
+      "utilization": 0.169051
+    },
+    {
+      "id": "mxm.e0.compute",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "mxm.e0.weight",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "mxm.e1.compute",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "mxm.e1.weight",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "mxm.w0.compute",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 512,
+      "peak": 1,
+      "utilization": 0.619855
+    },
+    {
+      "id": "mxm.w0.weight",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 40,
+      "peak": 1,
+      "utilization": 0.048426
+    },
+    {
+      "id": "mxm.w1.compute",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 512,
+      "peak": 1,
+      "utilization": 0.619855
+    },
+    {
+      "id": "mxm.w1.weight",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 40,
+      "peak": 1,
+      "utilization": 0.048426
+    },
+    {
+      "id": "srf.E2W",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 824,
+      "peak": 32,
+      "utilization": 0.250908
+    },
+    {
+      "id": "srf.W2E",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 718,
+      "peak": 32,
+      "utilization": 0.368039
+    },
+    {
+      "id": "sxm.e",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "sxm.w",
+      "kind": "exclusive",
+      "cap": 1,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "vxm.alu",
+      "kind": "counter",
+      "cap": 16,
+      "busy": 257,
+      "peak": 2,
+      "utilization": 0.038741
+    }
+  ],
+  "srf": {
+    "W2E": {
+      "peak": 32,
+      "avg": 11.77724
+    },
+    "E2W": {
+      "peak": 32,
+      "avg": 8.029056
+    }
+  },
+  "critical_path": [
+    "c0",
+    "c4",
+    "c6",
+    "c1",
+    "c3",
+    "c9",
+    "c11",
+    "c15"
+  ],
+  "critical_path_detail": [
+    {
+      "chain": "c0",
+      "start": 0,
+      "end": 48,
+      "bound_by": {
+        "kind": "source"
+      }
+    },
+    {
+      "chain": "c4",
+      "start": 47,
+      "end": 237,
+      "bound_by": {
+        "kind": "resource",
+        "resource": "srf.E2W",
+        "blocker": "c0"
+      }
+    },
+    {
+      "chain": "c6",
+      "start": 175,
+      "end": 365,
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "order",
+          "m0n0k0.acc",
+          "m1n0k0.acc"
+        ],
+        "from_chain": "c4"
+      }
+    },
+    {
+      "chain": "c1",
+      "start": 303,
+      "end": 351,
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "order",
+          "m1n0k0.acc",
+          "w.n0k1.lw"
+        ],
+        "from_chain": "c6"
+      }
+    },
+    {
+      "chain": "c3",
+      "start": 330,
+      "end": 378,
+      "bound_by": {
+        "kind": "resource",
+        "resource": "srf.E2W",
+        "blocker": "c1"
+      }
+    },
+    {
+      "chain": "c9",
+      "start": 351,
+      "end": 541,
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "state",
+          "w.n1k1.lw",
+          "m0n1k1.acc"
+        ],
+        "from_chain": "c3"
+      }
+    },
+    {
+      "chain": "c11",
+      "start": 479,
+      "end": 669,
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "order",
+          "m0n1k1.acc",
+          "m1n1k1.acc"
+        ],
+        "from_chain": "c9"
+      }
+    },
+    {
+      "chain": "c15",
+      "start": 669,
+      "end": 826,
+      "bound_by": {
+        "kind": "edge",
+        "edge": [
+          "mem",
+          "m1n1k1.wr",
+          "m1n1.p1.rd"
+        ],
+        "from_chain": "c11"
+      }
+    }
+  ],
+  "ops": [
+    {
+      "id": "mm",
+      "start": 0,
+      "end": 826
+    }
+  ],
+  "diagnostics": []
+}

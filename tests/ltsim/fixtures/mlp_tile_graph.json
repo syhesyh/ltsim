@@ -1,0 +1,60 @@
+{
+  "schema": "lts-tile-graph/0.2",
+  "machine": "lpu-tile-v0",
+  "source": "mlp.yaml",
+  "tensors": {
+    "X":  {"dtype": "i8",  "shape": [128, 320], "role": "input",        "hemisphere": "W", "layout": "row"},
+    "W1": {"dtype": "i8",  "shape": [320, 640], "role": "param",        "hemisphere": "W", "layout": "row"},
+    "B1": {"dtype": "f32", "shape": [640],      "role": "param",        "hemisphere": "W", "layout": "row"},
+    "H":  {"dtype": "i8",  "shape": [128, 640], "role": "intermediate", "hemisphere": "E", "layout": "row"},
+    "W2": {"dtype": "i8",  "shape": [640, 320], "role": "param",        "hemisphere": "E", "layout": "row"},
+    "B2": {"dtype": "i32", "shape": [320],      "role": "param",        "hemisphere": "W", "layout": "row"},
+    "Y":  {"dtype": "i8",  "shape": [128, 320], "role": "output",       "hemisphere": "W", "layout": "row"}
+  },
+  "nodes": [
+    {"id": "w1n0.rd",  "kind": "mem.read",   "tile": "W1[0:320,0:320]",   "rows": 320, "out": {"dtype": "i8", "V": 1}, "origin": ["fc1"]},
+    {"id": "w1n0.lw",  "kind": "mxm.load_w", "unit": "mxm.w0", "bank": 0, "rows": 320, "origin": ["fc1"]},
+    {"id": "w1n1.rd",  "kind": "mem.read",   "tile": "W1[0:320,320:640]", "rows": 320, "out": {"dtype": "i8", "V": 1}, "origin": ["fc1"]},
+    {"id": "w1n1.lw",  "kind": "mxm.load_w", "unit": "mxm.w1", "bank": 0, "rows": 320, "origin": ["fc1"]},
+    {"id": "w2k0.rd",  "kind": "mem.read",   "tile": "W2[0:320,0:320]",   "rows": 320, "out": {"dtype": "i8", "V": 1}, "origin": ["fc2"]},
+    {"id": "w2k0.lw",  "kind": "mxm.load_w", "unit": "mxm.e0", "bank": 0, "rows": 320, "origin": ["fc2"]},
+    {"id": "w2k1.rd",  "kind": "mem.read",   "tile": "W2[320:640,0:320]", "rows": 320, "out": {"dtype": "i8", "V": 1}, "origin": ["fc2"]},
+    {"id": "w2k1.lw",  "kind": "mxm.load_w", "unit": "mxm.e1", "bank": 0, "rows": 320, "origin": ["fc2"]},
+
+    {"id": "a0.x.rd",  "kind": "mem.read",  "tile": "X[0:128,0:320]",   "rows": 128,                 "out": {"dtype": "i8",  "V": 1}, "origin": ["fc1"]},
+    {"id": "a0.acc",   "kind": "mxm.acc",   "unit": "mxm.w0", "bank": 0, "rows": 128,               "out": {"dtype": "i32", "V": 4}, "origin": ["fc1"]},
+    {"id": "a0.b1.rd", "kind": "mem.read",  "tile": "B1[0:320]",        "rows": 128, "repeat": 128, "out": {"dtype": "f32", "V": 4}, "origin": ["b1"]},
+    {"id": "a0.vxm",   "kind": "vxm.chain", "ops": ["cvt", "mul.f32", "add.f32", "gelu.f32", "mul.f32", "cvt"], "rows": 128, "out": {"dtype": "i8", "V": 1}, "origin": ["dq1", "b1", "act", "q1"]},
+    {"id": "a0.h.wr",  "kind": "mem.write", "tile": "H[0:128,0:320]",   "rows": 128, "origin": ["q1"]},
+
+    {"id": "a1.x.rd",  "kind": "mem.read",  "tile": "X[0:128,0:320]",   "rows": 128,                 "out": {"dtype": "i8",  "V": 1}, "origin": ["fc1"]},
+    {"id": "a1.acc",   "kind": "mxm.acc",   "unit": "mxm.w1", "bank": 0, "rows": 128,               "out": {"dtype": "i32", "V": 4}, "origin": ["fc1"]},
+    {"id": "a1.b1.rd", "kind": "mem.read",  "tile": "B1[320:640]",      "rows": 128, "repeat": 128, "out": {"dtype": "f32", "V": 4}, "origin": ["b1"]},
+    {"id": "a1.vxm",   "kind": "vxm.chain", "ops": ["cvt", "mul.f32", "add.f32", "gelu.f32", "mul.f32", "cvt"], "rows": 128, "out": {"dtype": "i8", "V": 1}, "origin": ["dq1", "b1", "act", "q1"]},
+    {"id": "a1.h.wr",  "kind": "mem.write", "tile": "H[0:128,320:640]", "rows": 128, "origin": ["q1"]},
+
+    {"id": "b.h0.rd",  "kind": "mem.read",  "tile": "H[0:128,0:320]",   "rows": 128,                 "out": {"dtype": "i8",  "V": 1}, "origin": ["fc2"]},
+    {"id": "b.h1.rd",  "kind": "mem.read",  "tile": "H[0:128,320:640]", "rows": 128,                 "out": {"dtype": "i8",  "V": 1}, "origin": ["fc2"]},
+    {"id": "b.acc0",   "kind": "mxm.acc",   "unit": "mxm.e0", "bank": 0, "rows": 128,               "out": {"dtype": "i32", "V": 4}, "origin": ["fc2"]},
+    {"id": "b.acc1",   "kind": "mxm.acc",   "unit": "mxm.e1", "bank": 0, "rows": 128,               "out": {"dtype": "i32", "V": 4}, "origin": ["fc2"]},
+    {"id": "b.b2.rd",  "kind": "mem.read",  "tile": "B2[0:320]",        "rows": 128, "repeat": 128, "out": {"dtype": "i32", "V": 4}, "origin": ["b2"]},
+    {"id": "b.vxm",    "kind": "vxm.chain", "ops": ["add.i32", "add.i32", "cvt", "mul.f32", "cvt"], "rows": 128, "out": {"dtype": "i8", "V": 1}, "origin": ["fc2", "b2", "y"]},
+    {"id": "b.y.wr",   "kind": "mem.write", "tile": "Y[0:128,0:320]",   "rows": 128, "origin": ["y"]}
+  ],
+  "edges": {
+    "stream": [
+      ["w1n0.rd", "w1n0.lw"], ["w1n1.rd", "w1n1.lw"], ["w2k0.rd", "w2k0.lw"], ["w2k1.rd", "w2k1.lw"],
+      ["a0.x.rd", "a0.acc"], ["a0.acc", "a0.vxm"], ["a0.b1.rd", "a0.vxm"], ["a0.vxm", "a0.h.wr"],
+      ["a1.x.rd", "a1.acc"], ["a1.acc", "a1.vxm"], ["a1.b1.rd", "a1.vxm"], ["a1.vxm", "a1.h.wr"],
+      ["b.h0.rd", "b.acc0"], ["b.h1.rd", "b.acc1"], ["b.acc0", "b.vxm"], ["b.acc1", "b.vxm"],
+      ["b.b2.rd", "b.vxm"], ["b.vxm", "b.y.wr"]
+    ],
+    "state": [
+      ["w1n0.lw", "a0.acc"], ["w1n1.lw", "a1.acc"], ["w2k0.lw", "b.acc0"], ["w2k1.lw", "b.acc1"]
+    ],
+    "mem": [
+      ["a0.h.wr", "b.h0.rd"], ["a1.h.wr", "b.h1.rd"]
+    ],
+    "order": []
+  }
+}

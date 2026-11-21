@@ -1,0 +1,468 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LTSim tile graph (lts-tile-graph/0.2)",
+  "$comment": "文档用，运行时不读取：实际校验在 ltsim/graph/load.py 里手写（约定不依赖 jsonschema）。两者由 tests/ltsim/test_graph.py::TestSchemaJsonInSync 保持同步。规则见 ltsim/docs/backend.md §2。",
+  "type": "object",
+  "required": [
+    "schema",
+    "machine",
+    "tensors",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "schema": {
+      "const": "lts-tile-graph/0.2"
+    },
+    "machine": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string"
+    },
+    "tensors": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "dtype",
+          "shape",
+          "role",
+          "hemisphere",
+          "layout"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "dtype": {
+            "enum": [
+              "i8",
+              "i32",
+              "f16",
+              "bf16",
+              "f32"
+            ]
+          },
+          "shape": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minItems": 1,
+            "maxItems": 2
+          },
+          "role": {
+            "enum": [
+              "input",
+              "param",
+              "output",
+              "intermediate"
+            ]
+          },
+          "hemisphere": {
+            "enum": [
+              "W",
+              "E"
+            ]
+          },
+          "layout": {
+            "enum": [
+              "row",
+              "lane"
+            ]
+          },
+          "alias_of": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "rows",
+          "origin"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "origin": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "tile": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bank": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "ops": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "repeat": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "out": {
+            "type": "object",
+            "required": [
+              "dtype",
+              "V"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "dtype": {
+                "enum": [
+                  "i8",
+                  "i32",
+                  "f16",
+                  "bf16",
+                  "f32"
+                ]
+              },
+              "V": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "mem.read"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "id",
+                "kind",
+                "rows",
+                "origin",
+                "tile",
+                "out"
+              ],
+              "properties": {
+                "unit": false,
+                "bank": false,
+                "ops": false
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "mem.write"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "id",
+                "kind",
+                "rows",
+                "origin",
+                "tile"
+              ],
+              "properties": {
+                "unit": false,
+                "bank": false,
+                "ops": false,
+                "repeat": false,
+                "out": false
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "mxm.load_w"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "id",
+                "kind",
+                "rows",
+                "origin",
+                "unit",
+                "bank"
+              ],
+              "properties": {
+                "tile": false,
+                "ops": false,
+                "repeat": false,
+                "out": false
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "mxm.acc"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "id",
+                "kind",
+                "rows",
+                "origin",
+                "unit",
+                "bank",
+                "out"
+              ],
+              "properties": {
+                "tile": false,
+                "ops": false,
+                "repeat": false
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "vxm.chain"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "id",
+                "kind",
+                "rows",
+                "origin",
+                "ops",
+                "out"
+              ],
+              "properties": {
+                "tile": false,
+                "unit": false,
+                "bank": false,
+                "repeat": false
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "pattern": "^sxm\\."
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "id",
+                "kind",
+                "rows",
+                "origin",
+                "unit"
+              ],
+              "properties": {
+                "tile": false,
+                "bank": false,
+                "ops": false,
+                "repeat": false
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "not": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "mem.read",
+                          "mem.write",
+                          "mxm.load_w",
+                          "mxm.acc",
+                          "vxm.chain"
+                        ]
+                      },
+                      {
+                        "pattern": "^sxm\\."
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": false
+          }
+        ]
+      }
+    },
+    "edges": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stream": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 3,
+            "items": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ]
+          }
+        },
+        "state": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "string",
+                "minLength": 1
+              }
+            ]
+          }
+        },
+        "mem": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "string",
+                "minLength": 1
+              }
+            ]
+          }
+        },
+        "order": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "src",
+              "dst",
+              "ref",
+              "lag",
+              "reason"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "src": {
+                "type": "string",
+                "minLength": 1
+              },
+              "dst": {
+                "type": "string",
+                "minLength": 1
+              },
+              "ref": {
+                "enum": [
+                  "start",
+                  "issue_end",
+                  "done"
+                ]
+              },
+              "lag": {
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
+              "reason": {
+                "enum": [
+                  "acc_seq",
+                  "block_switch",
+                  "lw_after_iw",
+                  "bank_war"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

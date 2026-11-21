@@ -1,0 +1,87 @@
+# LTSim 机器参数表 v0（手写初值，取自设计文档 §3.4）
+# 每个参数标注来源：contract（合同原值）/ derived（推导）/ assumed（假设，待校准）/ calibrated（对 lpu-sim 拟合）
+schema: lts-machine/0.1
+id: lpu-tile-v0
+derived_from: {architecture_id: full-lpu-v2-canonical, sha256: "<todo: 待 derive_machine.py 生成>"}
+display: {cycle_ns: 1.0}                     # 仅用于 trace 显示：界面上 1 ns = 1 cycle
+
+geometry:
+  superlanes: 20                             # contract: srf.superlane_count
+  lanes_per_superlane: 16
+  vector_bytes: 320        # derived: superlanes 20 × 16 B
+srf:
+  streams_per_direction: 32                  # contract
+  hop_cycles: 1                              # contract: srf.transport_hop_cycles
+  wave_skew_cycles: 19                       # derived: MEM/MXM 命令波每 superlane 晚 1 拍，共 superlanes-1
+
+hops:                                        # derived（乐观）：由合同 x 坐标算出，MEM 取离对方最近的 quad，穿过 VXM 另加 3
+  MEM_W>MXM_W: 8
+  MEM_W>VXM:   2
+  MEM_W>MXM_E: 28
+  MEM_E>MXM_E: 9
+  MEM_E>VXM:   2
+  MEM_E>MXM_W: 27
+  MXM_W>VXM:   21
+  MXM_E>VXM:   22
+  MXM_W>MEM_W: 8
+  MXM_E>MEM_E: 9
+  MXM_W>MEM_E: 27
+  MXM_E>MEM_W: 28
+  VXM>MEM_W:   2
+  VXM>MEM_E:   2
+  VXM>MXM_W:   21
+  VXM>MXM_E:   22
+
+mem:
+  hemispheres: [W, E]
+  slices_per_hemisphere: 44                  # contract: 11 quad × 4 slice
+  vectors_per_slice: 8192                    # contract: 2 bank × 4096 words
+  read_vectors_per_cycle: 44                 # assumed（乐观）
+  write_vectors_per_cycle: 44                # assumed（乐观）
+  read_latency: 1                            # contract: read_visible_after_cycles
+  write_latency: 1                           # assumed
+  raw_gap: 0                                 # assumed: 写完到可读的额外间隔
+
+mxm:
+  instances:
+    - {id: mxm.w0, side: W, in_dir: E2W, out_dir: W2E}   # contract
+    - {id: mxm.w1, side: W, in_dir: E2W, out_dir: W2E}
+    - {id: mxm.e0, side: E, in_dir: W2E, out_dir: E2W}
+    - {id: mxm.e1, side: E, in_dir: W2E, out_dir: E2W}
+  block_k_rows: 320                          # derived: 20 supercell × k_bytes_per_supercell 16
+  block_n_cols: 320                          # derived: 20 supercell × outputs_per_supercell 16
+  weight_banks: 2                            # contract
+  # 按精度分表的参数：键名与 tile graph 的 dtype 一致（i8/f16/bf16）。精度取流入 MXM 的那个操作数的 dtype。
+  # 表里没有的精度，B1 报 LTS-E-UNIT-OP。
+  lw_rows_per_cycle:                         # 每拍装几行权重
+    i8: 16                                   # derived: gemm.py 每条 LW 用 16 条流装一个 supercell
+    f16: 8                                   # assumed（用户给定）：每行 2 个向量，装载减半；待 M2 校准
+    bf16: 8                                  # assumed（用户给定）：同 f16；待 M2 校准
+  acc_ii: 1                                  # contract；不随精度变化
+  acc_latency:                               # 首行结果延迟
+    i8: 25                                   # derived 初值：ABC→ACC 1 + 行波 19 + int8_dot 3 + psum 1 + collector 1，待校准
+    f16: 50                                  # assumed（用户给定）：i8 的 2 倍；待 M2 校准
+    bf16: 50                                 # assumed（用户给定）：同 f16；待 M2 校准
+  lw_to_acc_gap: 1                           # derived: gemm.py 中最后一条 LW 之后 1 拍是 IW，再下一拍 ABC
+  block_switch_gap: 5                        # derived: gemm.py 中下一块首个 ACC ≥ 上一块末个 ACC + 6；源于合同 iw_acc=false
+
+vxm:
+  alus: 16                                   # contract
+  op_latency:                                # contract: vxm.latencies（int 格式 0/2，fp 格式 1/3）
+    add.i32: 2                               # VXM_VADD 0x30
+    add.f32: 6
+    sub.f32: 6                               # VXM_VSUB 0x31
+    mul.i32: 2                               # VXM_VMUL 0x32
+    mul.f32: 6
+    relu: 2                                  # VXM_VRELU 0x36
+    cvt: 6                                   # VXM_VCVT 0x35
+    exp.f32: 10                              # VXM_VEXP 0x38
+    rsqrt.f32: 20                            # VXM_VRSQRT 0x39
+    gelu.f32: 18                             # VXM_VGELU 0x3C
+    rcp.f32: 23                              # VXM_VRCP 0x3E
+  op_overhead: 2                             # derived: timing.vxm_result_ready = issue + L + writeback 1 + srf 可见 1
+  alus_per_op_per_group: 1                   # assumed: 一个 ALU 每拍处理一组 320 元素
+
+sxm:
+  instances: [{id: sxm.w, side: W}, {id: sxm.e, side: E}]
+  latency: {transpose: 1, permute_local: 2, permute_full: 7, distribute: 1, select: 1}   # contract: latency_edges
