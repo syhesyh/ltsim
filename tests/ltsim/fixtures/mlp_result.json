@@ -1,13 +1,13 @@
 {
-  "schema": "lts-result/0.1",
-  "total_cycles": 551,
+  "schema": "lts-result/0.2",
+  "total_cycles": 506,
   "bounds": {
-    "path": 525,
-    "resource": 165,
-    "resource_exact": "2639/16",
-    "resource_name": "srf.W2E",
-    "lb": 525,
-    "gap": 0.049524,
+    "path": 506,
+    "resource": 136,
+    "resource_exact": "136",
+    "resource_name": "vxm.alu",
+    "lb": 506,
+    "gap": 0.0,
     "mxm_roofline": 128.0
   },
   "chains": [
@@ -57,35 +57,43 @@
     },
     {
       "id": "c4",
-      "start": 47,
+      "start": 21,
       "len": 265,
-      "end": 312,
+      "end": 286,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
-        "kind": "resource",
-        "resource": "srf.E2W",
-        "blocker": "c0"
+        "kind": "edge",
+        "edge": [
+          "state",
+          "w1n0.lw",
+          "a0.acc"
+        ],
+        "from_chain": "c0"
       }
     },
     {
       "id": "c5",
-      "start": 47,
+      "start": 21,
       "len": 265,
-      "end": 312,
+      "end": 286,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
-        "kind": "resource",
-        "resource": "srf.E2W",
-        "blocker": "c0"
+        "kind": "edge",
+        "edge": [
+          "state",
+          "w1n1.lw",
+          "a1.acc"
+        ],
+        "from_chain": "c1"
       }
     },
     {
       "id": "c6",
-      "start": 312,
+      "start": 267,
       "len": 239,
-      "end": 551,
+      "end": 506,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
@@ -159,121 +167,121 @@
     {
       "id": "a0.x.rd",
       "chain": "c4",
-      "start": 47,
-      "issue_end": 175,
-      "done": 176
+      "start": 21,
+      "issue_end": 149,
+      "done": 150
     },
     {
       "id": "a0.acc",
       "chain": "c4",
-      "start": 56,
-      "issue_end": 184,
-      "done": 209
+      "start": 30,
+      "issue_end": 158,
+      "done": 183
     },
     {
       "id": "a0.b1.rd",
       "chain": "c4",
-      "start": 99,
-      "issue_end": 227,
-      "done": 228
+      "start": 73,
+      "issue_end": 201,
+      "done": 202
     },
     {
       "id": "a0.vxm",
       "chain": "c4",
-      "start": 102,
-      "issue_end": 230,
-      "done": 290
+      "start": 76,
+      "issue_end": 204,
+      "done": 264
     },
     {
       "id": "a0.h.wr",
       "chain": "c4",
-      "start": 164,
-      "issue_end": 292,
-      "done": 312
+      "start": 138,
+      "issue_end": 266,
+      "done": 286
     },
     {
       "id": "a1.x.rd",
       "chain": "c5",
-      "start": 47,
-      "issue_end": 175,
-      "done": 176
+      "start": 21,
+      "issue_end": 149,
+      "done": 150
     },
     {
       "id": "a1.acc",
       "chain": "c5",
-      "start": 56,
-      "issue_end": 184,
-      "done": 209
+      "start": 30,
+      "issue_end": 158,
+      "done": 183
     },
     {
       "id": "a1.b1.rd",
       "chain": "c5",
-      "start": 99,
-      "issue_end": 227,
-      "done": 228
+      "start": 73,
+      "issue_end": 201,
+      "done": 202
     },
     {
       "id": "a1.vxm",
       "chain": "c5",
-      "start": 102,
-      "issue_end": 230,
-      "done": 290
+      "start": 76,
+      "issue_end": 204,
+      "done": 264
     },
     {
       "id": "a1.h.wr",
       "chain": "c5",
-      "start": 164,
-      "issue_end": 292,
-      "done": 312
+      "start": 138,
+      "issue_end": 266,
+      "done": 286
     },
     {
       "id": "b.h0.rd",
       "chain": "c6",
-      "start": 312,
-      "issue_end": 440,
-      "done": 441
+      "start": 267,
+      "issue_end": 395,
+      "done": 396
     },
     {
       "id": "b.h1.rd",
       "chain": "c6",
-      "start": 312,
-      "issue_end": 440,
-      "done": 441
+      "start": 267,
+      "issue_end": 395,
+      "done": 396
     },
     {
       "id": "b.acc0",
       "chain": "c6",
-      "start": 322,
-      "issue_end": 450,
-      "done": 475
+      "start": 277,
+      "issue_end": 405,
+      "done": 430
     },
     {
       "id": "b.acc1",
       "chain": "c6",
-      "start": 322,
-      "issue_end": 450,
-      "done": 475
+      "start": 277,
+      "issue_end": 405,
+      "done": 430
     },
     {
       "id": "b.b2.rd",
       "chain": "c6",
-      "start": 366,
-      "issue_end": 494,
-      "done": 495
+      "start": 321,
+      "issue_end": 449,
+      "done": 450
     },
     {
       "id": "b.vxm",
       "chain": "c6",
-      "start": 369,
-      "issue_end": 497,
-      "done": 529
+      "start": 324,
+      "issue_end": 452,
+      "done": 484
     },
     {
       "id": "b.y.wr",
       "chain": "c6",
-      "start": 403,
-      "issue_end": 531,
-      "done": 551
+      "start": 358,
+      "issue_end": 486,
+      "done": 506
     }
   ],
   "resources": [
@@ -283,7 +291,7 @@
       "cap": 44,
       "busy": 148,
       "peak": 32,
-      "utilization": 0.036958
+      "utilization": 0.040244
     },
     {
       "id": "mem.E.wr",
@@ -291,7 +299,7 @@
       "cap": 44,
       "busy": 128,
       "peak": 2,
-      "utilization": 0.010559
+      "utilization": 0.011498
     },
     {
       "id": "mem.W.rd",
@@ -299,7 +307,7 @@
       "cap": 44,
       "busy": 328,
       "peak": 32,
-      "utilization": 0.100313
+      "utilization": 0.109235
     },
     {
       "id": "mem.W.wr",
@@ -307,7 +315,7 @@
       "cap": 44,
       "busy": 128,
       "peak": 1,
-      "utilization": 0.00528
+      "utilization": 0.005749
     },
     {
       "id": "mxm.e0.compute",
@@ -315,7 +323,7 @@
       "cap": 1,
       "busy": 128,
       "peak": 1,
-      "utilization": 0.232305
+      "utilization": 0.252964
     },
     {
       "id": "mxm.e0.weight",
@@ -323,7 +331,7 @@
       "cap": 1,
       "busy": 20,
       "peak": 1,
-      "utilization": 0.036298
+      "utilization": 0.039526
     },
     {
       "id": "mxm.e1.compute",
@@ -331,7 +339,7 @@
       "cap": 1,
       "busy": 128,
       "peak": 1,
-      "utilization": 0.232305
+      "utilization": 0.252964
     },
     {
       "id": "mxm.e1.weight",
@@ -339,7 +347,7 @@
       "cap": 1,
       "busy": 20,
       "peak": 1,
-      "utilization": 0.036298
+      "utilization": 0.039526
     },
     {
       "id": "mxm.w0.compute",
@@ -347,7 +355,7 @@
       "cap": 1,
       "busy": 128,
       "peak": 1,
-      "utilization": 0.232305
+      "utilization": 0.252964
     },
     {
       "id": "mxm.w0.weight",
@@ -355,7 +363,7 @@
       "cap": 1,
       "busy": 20,
       "peak": 1,
-      "utilization": 0.036298
+      "utilization": 0.039526
     },
     {
       "id": "mxm.w1.compute",
@@ -363,7 +371,7 @@
       "cap": 1,
       "busy": 128,
       "peak": 1,
-      "utilization": 0.232305
+      "utilization": 0.252964
     },
     {
       "id": "mxm.w1.weight",
@@ -371,23 +379,71 @@
       "cap": 1,
       "busy": 20,
       "peak": 1,
-      "utilization": 0.036298
+      "utilization": 0.039526
     },
     {
-      "id": "srf.E2W",
+      "id": "srf.E2W.E",
       "kind": "counter",
       "cap": 32,
-      "busy": 405,
-      "peak": 32,
-      "utilization": 0.18801
+      "busy": 150,
+      "peak": 8,
+      "utilization": 0.074111
     },
     {
-      "id": "srf.W2E",
+      "id": "srf.E2W.E.lw",
       "kind": "counter",
       "cap": 32,
-      "busy": 481,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "srf.E2W.W",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 266,
+      "peak": 2,
+      "utilization": 0.024827
+    },
+    {
+      "id": "srf.E2W.W.lw",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 28,
       "peak": 32,
-      "utilization": 0.299342
+      "utilization": 0.055336
+    },
+    {
+      "id": "srf.W2E.E",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 267,
+      "peak": 2,
+      "utilization": 0.032979
+    },
+    {
+      "id": "srf.W2E.E.lw",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 29,
+      "peak": 32,
+      "utilization": 0.057312
+    },
+    {
+      "id": "srf.W2E.W",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 279,
+      "peak": 16,
+      "utilization": 0.16996
+    },
+    {
+      "id": "srf.W2E.W.lw",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
     },
     {
       "id": "sxm.e",
@@ -411,17 +467,41 @@
       "cap": 16,
       "busy": 256,
       "peak": 12,
-      "utilization": 0.246824
+      "utilization": 0.268775
     }
   ],
   "srf": {
-    "W2E": {
-      "peak": 32,
-      "avg": 9.578947
+    "srf.E2W.E": {
+      "peak": 8,
+      "avg": 2.371542
     },
-    "E2W": {
+    "srf.E2W.E.lw": {
+      "peak": 0,
+      "avg": 0.0
+    },
+    "srf.E2W.W": {
+      "peak": 2,
+      "avg": 0.794466
+    },
+    "srf.E2W.W.lw": {
       "peak": 32,
-      "avg": 6.016334
+      "avg": 1.770751
+    },
+    "srf.W2E.E": {
+      "peak": 2,
+      "avg": 1.055336
+    },
+    "srf.W2E.E.lw": {
+      "peak": 32,
+      "avg": 1.833992
+    },
+    "srf.W2E.W": {
+      "peak": 16,
+      "avg": 5.438735
+    },
+    "srf.W2E.W.lw": {
+      "peak": 0,
+      "avg": 0.0
     }
   },
   "critical_path": [
@@ -440,18 +520,22 @@
     },
     {
       "chain": "c4",
-      "start": 47,
-      "end": 312,
+      "start": 21,
+      "end": 286,
       "bound_by": {
-        "kind": "resource",
-        "resource": "srf.E2W",
-        "blocker": "c0"
+        "kind": "edge",
+        "edge": [
+          "state",
+          "w1n0.lw",
+          "a0.acc"
+        ],
+        "from_chain": "c0"
       }
     },
     {
       "chain": "c6",
-      "start": 312,
-      "end": 551,
+      "start": 267,
+      "end": 506,
       "bound_by": {
         "kind": "edge",
         "edge": [
@@ -463,46 +547,100 @@
       }
     }
   ],
+  "no_hop_tail": {
+    "total_cycles": 506,
+    "bounds": {
+      "path": 506,
+      "resource": 136,
+      "resource_exact": "136",
+      "resource_name": "vxm.alu",
+      "lb": 506,
+      "gap": 0.0
+    },
+    "critical_path": [
+      "c0",
+      "c4",
+      "c6"
+    ],
+    "critical_path_detail": [
+      {
+        "chain": "c0",
+        "start": 0,
+        "end": 48,
+        "bound_by": {
+          "kind": "source"
+        }
+      },
+      {
+        "chain": "c4",
+        "start": 21,
+        "end": 286,
+        "bound_by": {
+          "kind": "edge",
+          "edge": [
+            "state",
+            "w1n0.lw",
+            "a0.acc"
+          ],
+          "from_chain": "c0"
+        }
+      },
+      {
+        "chain": "c6",
+        "start": 267,
+        "end": 506,
+        "bound_by": {
+          "kind": "edge",
+          "edge": [
+            "mem",
+            "a0.h.wr",
+            "b.h0.rd"
+          ],
+          "from_chain": "c4"
+        }
+      }
+    ]
+  },
   "ops": [
     {
       "id": "fc1",
       "start": 0,
-      "end": 209
+      "end": 183
     },
     {
       "id": "fc2",
       "start": 0,
-      "end": 529
+      "end": 484
     },
     {
       "id": "b1",
-      "start": 99,
-      "end": 290
+      "start": 73,
+      "end": 264
     },
     {
       "id": "dq1",
-      "start": 102,
-      "end": 290
+      "start": 76,
+      "end": 264
     },
     {
       "id": "act",
-      "start": 102,
-      "end": 290
+      "start": 76,
+      "end": 264
     },
     {
       "id": "q1",
-      "start": 102,
-      "end": 312
+      "start": 76,
+      "end": 286
     },
     {
       "id": "b2",
-      "start": 366,
-      "end": 529
+      "start": 321,
+      "end": 484
     },
     {
       "id": "y",
-      "start": 369,
-      "end": 551
+      "start": 324,
+      "end": 506
     }
   ],
   "diagnostics": []

@@ -13,10 +13,24 @@ import yaml
 from ..errors import LTSError
 
 
+SRF_POOL_MODES = ("half", "direction")
+LW_STREAM_MODES = ("separate", "shared")
+
+
+def srf_pool_names(srf_pool: str, lw_streams: str) -> tuple[str, ...]:
+    """全部 SRF 流池的 id，按名字排序。例如 half + separate：srf.E2W.E、srf.E2W.E.lw、srf.E2W.W、…"""
+    base = [f"srf.{d}" for d in ("W2E", "E2W")]
+    if srf_pool == "half":
+        base = [f"{b}.{h}" for b in base for h in ("W", "E")]
+    if lw_streams == "separate":
+        base += [f"{b}.lw" for b in base]
+    return tuple(sorted(base))
+
+
 @dataclass(frozen=True)
 class Resource:
     """一个可被调度器竞争的资源。"""
-    id: str                                  # "mxm.w0.compute" / "vxm.alu" / "srf.W2E" / "mem.W.rd" ...
+    id: str                                  # "mxm.w0.compute" / "vxm.alu" / "srf.E2W.W" / "mem.W.rd" ...
     kind: Literal["exclusive", "counter"]
     cap: int                                 # exclusive 恒为 1；counter 为容量
 
@@ -59,8 +73,15 @@ class Machine:
 
     # ---- 资源注册表 ---------------------------------------------------
 
-    def resources(self) -> Mapping[str, Resource]:
-        """推导全部资源 id → Resource。供 B3 建日历。"""
+    def resources(self, *, srf_pool: str = "half", lw_streams: str = "separate") -> Mapping[str, Resource]:
+        """推导全部资源 id → Resource（backend.md §4.4.1「流资源池」）。
+
+        只供 B2 的 build_chains 调用：它把这张表存进 ChainGraph.resources，B3/B4/trace/oracle 都从那里取，
+        所以链图和资源表不会各算各的。srf_pool / lw_streams 只决定 SRF 流池怎么分，其余资源与选项无关。"""
+        if srf_pool not in SRF_POOL_MODES:
+            raise LTSError("LTS-E-ARG", f"srf_pool must be one of {SRF_POOL_MODES}, got {srf_pool!r}")
+        if lw_streams not in LW_STREAM_MODES:
+            raise LTSError("LTS-E-ARG", f"lw_streams must be one of {LW_STREAM_MODES}, got {lw_streams!r}")
         res: dict[str, Resource] = {}
 
         # MXM：每 plane 有独立的 weight 与 compute 两个独占资源（lw_abc_acc=true）
@@ -72,10 +93,11 @@ class Machine:
         # VXM：计数资源，alu 数
         res["vxm.alu"] = Resource("vxm.alu", "counter", self.param("vxm.alus"))
 
-        # SRF：两个方向各 streams_per_direction 条流
+        # SRF：流池，每个池 streams_per_direction 条流。direction：每个方向一个池；half：每个方向再分东西两半；
+        # lw_streams = separate 时每个池另有一个权重装载专用的 ".lw" 池
         n = self.param("srf.streams_per_direction")
-        res["srf.W2E"] = Resource("srf.W2E", "counter", n)
-        res["srf.E2W"] = Resource("srf.E2W", "counter", n)
+        for name in srf_pool_names(srf_pool, lw_streams):
+            res[name] = Resource(name, "counter", n)
 
         # MEM：每半球读/写各一个计数资源
         rd = self.param("mem.read_vectors_per_cycle")

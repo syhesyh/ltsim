@@ -12,7 +12,7 @@ from typing import Mapping
 from ..errors import LTSError
 from ..graph.load import tile_lanes
 from ..graph.tile_graph import TileGraph
-from ..machine.model import Machine, Resource
+from ..machine.model import Machine
 from .chains import ChainGraph
 from .scheduler import BoundBy, Placed, _kahn
 
@@ -35,7 +35,9 @@ class CriticalStep:
     bound_by: BoundBy              # 这条链为什么不能再早开始
 
 
-def compute_bounds(cg: ChainGraph, placed: Placed, resources: Mapping[str, Resource]) -> Bounds:
+def compute_bounds(cg: ChainGraph, placed: Placed) -> Bounds:
+    """资源表取 cg.resources。"""
+    resources = cg.resources
     length = {c.id: c.length for c in cg.chains}
     # LB_path：链间约束图上从虚拟源（T ≥ 0）出发的最长路径，与 B3 用同一组边权
     es = {c: 0 for c in length}

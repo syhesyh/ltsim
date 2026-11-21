@@ -441,13 +441,17 @@ def resolve_lags(g: TileGraph, m: Machine) -> ResolvedGraph:
 
     默认值（backend.md §4.6）：
       state → ("issue_end", mxm.lw_to_acc_gap)
-      mem   → ("done",       mem.raw_gap)
+      mem   → ("issue_end", mem.write_latency + mem.raw_gap)
+
+    mem 边的源一定是 mem.write（B0 保证），它的 L 就是 mem.write_latency：最后一行在 superlane 0
+    发出（issue_end）后再过 L + raw_gap，读者就能在 superlane 0 读整个 tile；其余 superlane 两边
+    同样晚 r 拍，所以不加 wave_skew（backend.md §4.6）。
     """
     out: list[ResolvedEdge] = []
     for (s, d) in g.edges_state:
         out.append(("state", s, d, "issue_end", m.param("mxm.lw_to_acc_gap"), None))
     for (s, d) in g.edges_mem:
-        out.append(("mem", s, d, "done", m.param("mem.raw_gap"), None))
+        out.append(("mem", s, d, "issue_end", m.param("mem.write_latency") + m.param("mem.raw_gap"), None))
     for o in g.edges_order:
         lag = o.lag
         if isinstance(lag, str):

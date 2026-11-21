@@ -80,9 +80,28 @@ class TestResources:
         assert m.resources()["vxm.alu"].cap == 16
 
     def test_srf_counter(self, m):
-        res = m.resources()
-        assert res["srf.W2E"].cap == 32
-        assert res["srf.E2W"].cap == 32
+        """流池随选项变（backend.md §4.4.1「流资源池」），每个池都是 streams_per_direction 条流。"""
+        res = m.resources(srf_pool="direction", lw_streams="shared")
+        assert sorted(r for r in res if r.startswith("srf.")) == ["srf.E2W", "srf.W2E"]
+        assert res["srf.W2E"].cap == 32 and res["srf.E2W"].cap == 32 and res["srf.W2E"].kind == "counter"
+
+    def test_srf_pools_per_option(self, m):
+        def pools(**kw):
+            return sorted(r for r in m.resources(**kw) if r.startswith("srf."))
+        assert pools() == pools(srf_pool="half", lw_streams="separate") == [
+            "srf.E2W.E", "srf.E2W.E.lw", "srf.E2W.W", "srf.E2W.W.lw",
+            "srf.W2E.E", "srf.W2E.E.lw", "srf.W2E.W", "srf.W2E.W.lw"]
+        assert pools(srf_pool="half", lw_streams="shared") == ["srf.E2W.E", "srf.E2W.W", "srf.W2E.E", "srf.W2E.W"]
+        assert pools(srf_pool="direction", lw_streams="separate") == ["srf.E2W", "srf.E2W.lw", "srf.W2E", "srf.W2E.lw"]
+        assert all(r.cap == 32 for name, r in m.resources().items() if name.startswith("srf."))
+        # 其余资源与选项无关
+        strip = lambda d: {k: v for k, v in d.items() if not k.startswith("srf.")}
+        assert strip(m.resources()) == strip(m.resources(srf_pool="direction", lw_streams="shared"))
+
+    @pytest.mark.parametrize("kw", [dict(srf_pool="quarter"), dict(lw_streams="split")])
+    def test_srf_bad_option(self, m, kw):
+        with pytest.raises(LTSError, match="LTS-E-ARG"):
+            m.resources(**kw)
 
     def test_mem_counters(self, m):
         res = m.resources()

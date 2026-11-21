@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction as F
 from math import ceil
 from typing import Mapping
@@ -15,16 +15,17 @@ from typing import Mapping
 from ..errors import LTSError
 from ..graph.load import resolve_lags, tile_region
 from ..graph.tile_graph import TileGraph
-from ..machine.model import Machine, Resource
+from ..machine.model import LW_STREAM_MODES, SRF_POOL_MODES, Machine, Resource
 from .work import NodeWork, node_works, out_directions, stream_hops, write_v_in
 
 MEM_OVERLAP_MODES = ("tile", "row")
+_HALF = {"MEM_W": "W", "MXM_W": "W", "MEM_E": "E", "MXM_E": "E"}     # VXM 不属于任何一半
 
 
 @dataclass(frozen=True)
 class Reservation:
     """相对链起点的资源占用，区间左闭右开。"""
-    resource: str            # "mxm.w0.compute"、"vxm.alu"、"srf.E2W"、"mem.W.rd" ...
+    resource: str            # "mxm.w0.compute"、"vxm.alu"、"srf.E2W.W"、"mem.W.rd" ...
     start: int
     end: int
     amount: int              # 独占资源恒为 1
@@ -59,6 +60,9 @@ class ChainGraph:
     edges: tuple[ChainEdge, ...]          # 全部链间边，不去重（B3 取最大值，B4 的 trace 要画每一条）
     chain_of: Mapping[str, str]           # 节点 id → 链 id
     works: Mapping[str, NodeWork]         # B1 结果，供 B3/B4 使用
+    resources: Mapping[str, Resource]     # 组链所用的资源表（含按选项划分的 SRF 流池）；B3/B4/trace/oracle 只用它
+    # 建链选项 {"mem_overlap", "srf_pool", "lw_streams", "hop_tail"}；build_result 用它核对 no_hop_tail 副结果
+    options: Mapping[str, object] = field(default_factory=dict)
 
     def chain(self, cid: str) -> Chain:
         for c in self.chains:
@@ -67,15 +71,25 @@ class ChainGraph:
         raise KeyError(cid)
 
 
-def build_chains(g: TileGraph, m: Machine, *, mem_overlap: str = "tile") -> ChainGraph:
+def build_chains(g: TileGraph, m: Machine, *, mem_overlap: str = "tile", srf_pool: str = "half",
+                 lw_streams: str = "separate", hop_tail: bool = True) -> ChainGraph:
+    """srf_pool / lw_streams 决定 SRF 流池的划分，hop_tail 决定流预留带不带 hop 尾巴（backend.md §4.4.1「流资源池」）。"""
     if mem_overlap not in MEM_OVERLAP_MODES:
         raise LTSError("LTS-E-ARG", f"mem_overlap must be one of {MEM_OVERLAP_MODES}, got {mem_overlap!r}")
+    if srf_pool not in SRF_POOL_MODES:
+        raise LTSError("LTS-E-ARG", f"srf_pool must be one of {SRF_POOL_MODES}, got {srf_pool!r}")
+    if lw_streams not in LW_STREAM_MODES:
+        raise LTSError("LTS-E-ARG", f"lw_streams must be one of {LW_STREAM_MODES}, got {lw_streams!r}")
+    if not isinstance(hop_tail, bool):
+        raise LTSError("LTS-E-ARG", f"hop_tail must be a bool, got {hop_tail!r}")
     works = node_works(g, m)
     hops = stream_hops(g, works, m)
     dirs = out_directions(g, works)
     v_in = write_v_in(g)
-    resources = m.resources()
-    wave = m.param("srf.wave_skew_cycles")
+    resources = m.resources(srf_pool=srf_pool, lw_streams=lw_streams)
+    # 同链 mem 检查与 row 模式直接取机器的 mem.raw_gap（写延迟已经以 L_w 计入 _mem_row_lag）。
+    # 这样做成立是因为 mem 边没有逐边的 lag；将来若允许 mem 边自带 lag，这里要改成从解析后的 lag 里扣掉 L_w。
+    raw_gap = m.param("mem.raw_gap")
     by = {n.id: n for n in g.nodes}
 
     # ---- 4.1 求链：并查集；链按"分量里在 nodes 中最靠前的节点"编号 ----
@@ -113,7 +127,7 @@ def build_chains(g: TileGraph, m: Machine, *, mem_overlap: str = "tile") -> Chai
         _check_stream_acyclic(cid, nodes, es)
         o = _offsets(cid, nodes, es, works, hops, rate)
         length = max(o[n] + works[n].L + D[n] + works[n].skew for n in nodes)
-        resv = _reservations(nodes, es, by, works, hops, dirs, v_in, o, D, rate, wave)
+        resv = _reservations(nodes, es, by, works, hops, dirs, v_in, o, D, rate, srf_pool, lw_streams, hop_tail)
         _check_chain_resources(cid, resv, resources)
         chains.append(Chain(cid, tuple(nodes), rate, D, o, length, resv))
         o_all.update(o)
@@ -132,7 +146,8 @@ def build_chains(g: TileGraph, m: Machine, *, mem_overlap: str = "tile") -> Chai
         cu, cv = chain_of[u], chain_of[v]
         if cu == cv:
             if kind == "mem":
-                need, word = _mem_row_lag(g, by, u, v, lag, o_all, works, rate_of[cu], rate_of[cv], wave)
+                # raw_gap 取自机器而不是 lag（lag 已含 write_latency），见上方 raw_gap 的注释
+                need, word = _mem_row_lag(g, by, u, v, raw_gap, o_all, works, rate_of[cu], rate_of[cv])
                 if need > 0:
                     raise LTSError("LTS-E-CHAIN-SELF",
                                    f"chain {cu}: {v!r} reads word {word} {need} cycle(s) before "
@@ -143,14 +158,17 @@ def build_chains(g: TileGraph, m: Machine, *, mem_overlap: str = "tile") -> Chai
                                f"= {refoff(u, ref) + lag}, but offset({v}) = {o_all[v]}")
             continue
         if kind == "mem" and mem_overlap == "row":
-            # 逐 word 精确：读到每个公共 word 时它已写完可见（与同链检查同一公式，backend.md §4.6）
-            weight, _word = _mem_row_lag(g, by, u, v, lag, o_all, works, rate_of[cu], rate_of[cv], wave)
+            # 逐 word 精确：读到每个公共 word 时它已写完可见（与同链检查同一公式，backend.md §4.6）。
+            # 传 mem.raw_gap 而不是解析后的 lag（= write_latency + raw_gap）：_mem_row_lag 自己加 L_w；
+            # mem 边没有逐边 lag 才能这样取，见上方 raw_gap 的注释
+            weight, _word = _mem_row_lag(g, by, u, v, raw_gap, o_all, works, rate_of[cu], rate_of[cv])
         else:
             weight = refoff(u, ref) + lag - o_all[v]
         edges.append(ChainEdge(cu, cv, weight, (kind, u, v), ref, reason))
 
     _check_chain_graph_acyclic([c.id for c in chains], edges)
-    return ChainGraph(tuple(chains), tuple(edges), chain_of, works)
+    options = {"mem_overlap": mem_overlap, "srf_pool": srf_pool, "lw_streams": lw_streams, "hop_tail": hop_tail}
+    return ChainGraph(tuple(chains), tuple(edges), chain_of, works, resources, options)
 
 
 # ---------------------------------------------------------------------------
@@ -204,8 +222,30 @@ def _offsets(cid, nodes, es, works, hops, rate) -> dict[str, int]:
     return {n: o[n] - lo for n in nodes}
 
 
-def _reservations(nodes, es, by, works, hops, dirs, v_in, o, D, rate, wave) -> tuple[Reservation, ...]:
-    """backend.md §4.4 的预留表。有 out 但没有 stream 消费者的节点不占流（没有方向，也没有 hop_last）。"""
+def srf_pools(n: str, succ: list[str], by, works, direction: str, srf_pool: str, lw_streams: str) -> tuple[str, ...]:
+    """节点 n（后继 succ、方向 direction）的流预留进哪些池（backend.md §4.4.1「流资源池」），按名字排序。
+    half：n 与全部后继的 category 落在哪几半就占哪几半（VXM 不属于任何一半；跨中线的传输两半都占；
+    集合为空时两半都占，v0 不会出现）。separate：后继全是 load_w → 只进 .lw 池；部分是 → .lw 与普通池都占。"""
+    base = f"srf.{direction}"
+    if srf_pool == "half":
+        halves = {_HALF[works[x].category] for x in [n, *succ] if works[x].category in _HALF} or {"W", "E"}
+        names = [f"{base}.{h}" for h in sorted(halves)]
+    else:
+        names = [base]
+    if lw_streams == "separate":
+        lw = [by[x].kind == "mxm.load_w" for x in succ]
+        if all(lw):
+            names = [f"{x}.lw" for x in names]
+        elif any(lw):
+            names = names + [f"{x}.lw" for x in names]
+    return tuple(sorted(names))
+
+
+def _reservations(nodes, es, by, works, hops, dirs, v_in, o, D, rate, srf_pool, lw_streams, hop_tail
+                  ) -> tuple[Reservation, ...]:
+    """backend.md §4.4 的预留表。有 out 但没有 stream 消费者的节点不占流（没有方向，也没有 hop_last）。
+    流预留不加 wave_skew：前后两个占用同一条流的命令都跟着同一个命令波走，每个 superlane 上的 +r 两边抵消。
+    hop_tail=False 时流预留去掉 hop_last 尾巴；流预留进哪些池见 srf_pools。"""
     out: list[Reservation] = []
     for n in nodes:
         node, w, on, d = by[n], works[n], o[n], D[n]
@@ -221,9 +261,10 @@ def _reservations(nodes, es, by, works, hops, dirs, v_in, o, D, rate, wave) -> t
         elif k == "vxm.chain":
             out.append(Reservation("vxm.alu", on, on + d, ceil(len(node.ops) * rate), n))   # v0 groups = 1
         if n in dirs:
-            hop_last = max(hops[(u, v)] for u, v, _ in es if u == n)
-            out.append(Reservation(f"srf.{dirs[n]}", on + w.L, on + w.L + d + wave + hop_last,
-                                   ceil(node.out.V * rate), n))
+            succ = [v for u, v, _ in es if u == n]
+            tail = max(hops[(n, v)] for v in succ) if hop_tail else 0
+            for pool in srf_pools(n, succ, by, works, dirs[n], srf_pool, lw_streams):
+                out.append(Reservation(pool, on + w.L, on + w.L + d + tail, ceil(node.out.V * rate), n))
     return tuple(sorted(out, key=lambda r: (r.resource, r.start, r.end, r.node)))
 
 
@@ -263,11 +304,13 @@ def _check_chain_resources(cid: str, resv: tuple[Reservation, ...], resources: M
                                      f"at offset {at} (nodes {users})")
 
 
-def _mem_row_lag(g, by, w_id, r_id, raw_gap, o, works, rate_w, rate_r, wave) -> tuple[int, int]:
+def _mem_row_lag(g, by, w_id, r_id, raw_gap, o, works, rate_w, rate_r) -> tuple[int, int]:
     """mem 边 w → r 的逐 word 条件（backend.md §4.5、§4.6）。对每个公共 word：
 
-        T_r + o_r + ceil(i_r / ρ_r)  ≥  T_w + o_w + L_w + ceil(i_w / ρ_w) + wave_skew + raw_gap
+        T_r + o_r + ceil(i_r / ρ_r)  ≥  T_w + o_w + L_w + ceil(i_w / ρ_w) + raw_gap
 
+    时刻都记在 superlane 0；读写都跟着同一个命令波走，superlane r 上两边各加 r，不加 wave_skew。
+    raw_gap 是 mem.raw_gap 本身（不是解析后的 lag，它已含 L_w）。
     i_r、i_w 是该 word 在读、写节点里的行号，word 按各自布局换算（tile_region）。
     返回 (max_word [右边 − 左边里不含 T 的部分], 取到最大值的 word)，即 T_r − T_w 至少要多大：
     同链时 T_r = T_w，这个值必须 ≤ 0；跨链时它就是链间边的权重。广播读只有 1 个 word，i_r 恒为 0。"""
@@ -276,7 +319,7 @@ def _mem_row_lag(g, by, w_id, r_id, raw_gap, o, works, rate_w, rate_r, wave) -> 
     lo, hi = max(rw0, ww0), min(rw1, ww1)
     if lo >= hi:
         raise LTSError("LTS-E-GRAPH-MEM", f"mem edge {w_id}->{r_id}: tiles share no word")
-    base = o[w_id] + works[w_id].L + wave + raw_gap - o[r_id]
+    base = o[w_id] + works[w_id].L + raw_gap - o[r_id]
     best, at = None, None
     for word in range(lo, hi):
         need = base + ceil(F(word - ww0) / rate_w) - ceil(F(word - rw0) / rate_r)

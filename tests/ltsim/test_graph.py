@@ -112,13 +112,14 @@ class TestResolveLags:
     def test_defaults(self, g, m):
         rg = resolve_lags(g, m)
         kinds = {(e[0], e[3]) for e in rg.non_stream_edges}
-        # state → issue_end, mem → done
+        # state → issue_end, mem → issue_end（不再是 done：不加写节点的 wave_skew）
         assert ("state", "issue_end") in kinds
-        assert ("mem", "done") in kinds
-        # lag 数值：state 用 lw_to_acc_gap=1，mem 用 raw_gap=0
+        assert ("mem", "issue_end") in kinds
+        assert not any(k == "mem" and ref == "done" for k, ref in kinds)
+        # lag 数值：state 用 lw_to_acc_gap=1，mem 用 write_latency 1 + raw_gap 0
         lags = {e[0]: e[4] for e in rg.non_stream_edges}
         assert lags["state"] == 1
-        assert lags["mem"] == 0
+        assert lags["mem"] == 1
         # 4 state + 2 mem = 6 条非 stream 边
         assert len(rg.non_stream_edges) == 6
 

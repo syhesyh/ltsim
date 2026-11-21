@@ -1,6 +1,6 @@
 """B3 scheduler.py 的测试。
 
-金标准：backend.md §8.3 的调度过程（总周期 551）。另外：计数资源按合并后的分段检查；
+金标准：backend.md §8.3 的调度过程（总周期 513）。另外：计数资源按合并后的分段检查；
 topo 策略；double weight bank 在 GEMM 上的装载-计算重叠；随机生成的 GEMM 变体上的性质检查。
 """
 import random
@@ -16,6 +16,9 @@ from ltsim.gen.gemm import build_gemm
 from ltsim.gen.mlp import build_mlp
 from ltsim.machine.model import default_machine
 
+# 手算核对过的期望值都是旧选项下的（backend.md §8.4）；新默认选项的用例单独写
+LEGACY = dict(srf_pool="direction", lw_streams="shared")
+
 
 @pytest.fixture(scope="module")
 def m():
@@ -23,13 +26,13 @@ def m():
 
 
 @pytest.fixture(scope="module")
-def R(m):
-    return m.resources()
+def R(mlp):
+    return mlp.resources
 
 
 @pytest.fixture(scope="module")
 def mlp(m):
-    return build_chains(build_mlp(), m)
+    return build_chains(build_mlp(), m, **LEGACY)
 
 
 def node_start(cg, placed, nid):
@@ -45,30 +48,90 @@ def node_issue_end(cg, placed, nid):
 
 class TestMlpGolden:
     def test_bottom_levels(self, mlp):
-        assert bottom_levels(mlp) == {"c0": 525, "c1": 525, "c2": 260, "c3": 260,
-                                      "c4": 504, "c5": 504, "c6": 239}
+        # c6 239；c4 = 246 + 239 = 485；c0 = 21 + 485 = 506；c2 = 21 + 239 = 260
+        assert bottom_levels(mlp) == {"c0": 506, "c1": 506, "c2": 260, "c3": 260,
+                                      "c4": 485, "c5": 485, "c6": 239}
 
     def test_schedule(self, mlp, R):
-        p = schedule(mlp, R)
+        p = schedule(mlp)
         assert p.order == ("c0", "c1", "c4", "c5", "c2", "c3", "c6")
-        assert p.start == {"c0": 0, "c1": 0, "c4": 47, "c5": 47, "c2": 0, "c3": 0, "c6": 312}
-        assert p.total == 551
+        assert p.start == {"c0": 0, "c1": 0, "c4": 28, "c5": 28, "c2": 0, "c3": 0, "c6": 274}
+        assert p.total == 513
 
     def test_bound_by(self, mlp, R):
-        b = schedule(mlp, R).bound_by
+        b = schedule(mlp).bound_by
         for c in ("c0", "c1", "c2", "c3"):
             assert b[c] == BoundBy("source")
-        # 读 X 要 1 条 E2W 流，[1,48) 被 c0、c1 的权重装载占满 32 条；两者各 16，平局取先提交的 c0
+        # 读 X 要 1 条 E2W 流，[1,29) 被 c0、c1 的权重装载占满 32 条；两者各 16，平局取先提交的 c0
         assert b["c4"] == BoundBy("resource", resource="srf.E2W", blocker="c0")
         assert b["c5"] == BoundBy("resource", resource="srf.E2W", blocker="c0")
-        # est = max(21, 21, 47+265, 47+265) = 312；同值时取第一条达到的边
+        # est = max(21, 21, 28+246, 28+246) = 274；同值时取第一条达到的边
         assert b["c6"] == BoundBy("edge", edge=("mem", "a0.h.wr", "b.h0.rd"), blocker="c4")
 
     def test_valid(self, mlp, R):
-        assert verify(mlp, schedule(mlp, R), R) == []
+        assert verify(mlp, schedule(mlp)) == []
+
+    def test_wave_skew_cancels_between_wave_following_ops(self, m, mlp, R):
+        """backend.md §4.4、§4.6（2026-11-21 的规则修订）：两个都跟着命令波走的操作之间不加 wave_skew。
+        流预留：w1n0.rd 只占 [o+L, o+L+D+hop) = [1, 1+20+8)，不再多 19 拍；
+        mem 边：c6 只等 a0.h.wr 的 issue_end + write_latency + raw_gap = 28+117+128+1 = 274，
+        早于 c4 结束（293 = 274 + 19，含写节点的 skew）。done 与链长仍含 skew。"""
+        res = {r.node: (r.start, r.end) for r in mlp.chain("c0").reservations if r.resource == "srf.E2W"}
+        assert res == {"w1n0.rd": (1, 29)}
+        p = schedule(mlp)
+        c4_end = p.start["c4"] + mlp.chain("c4").length
+        assert (p.start["c6"], c4_end) == (274, 293)
+        assert p.start["c6"] < c4_end
+        assert c4_end - p.start["c6"] == m.param("srf.wave_skew_cycles")
 
     def test_deterministic(self, mlp, R):
-        assert schedule(mlp, R) == schedule(mlp, R)
+        assert schedule(mlp) == schedule(mlp)
+
+
+class TestMlpDefaults:
+    """默认选项（srf_pool = half、lw_streams = separate）下的手算（backend.md §8.3）：读 X 在 srf.E2W.W，
+    权重读在 srf.E2W.W.lw，互不竞争，c4、c5 在 state 边要求的 21 开始；c6 = 21 + 246 = 267；总周期 267 + 239 = 506。"""
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def dflt(cls, m):
+        return build_chains(build_mlp(), m)
+
+    def test_schedule(self, dflt):
+        p = schedule(dflt)
+        assert bottom_levels(dflt) == {"c0": 506, "c1": 506, "c2": 260, "c3": 260, "c4": 485, "c5": 485, "c6": 239}
+        assert p.order == ("c0", "c1", "c4", "c5", "c2", "c3", "c6")
+        assert p.start == {"c0": 0, "c1": 0, "c4": 21, "c5": 21, "c2": 0, "c3": 0, "c6": 267}
+        assert p.total == 506 and verify(dflt, p) == []
+
+    def test_bound_by_edges_not_srf(self, dflt):
+        b = schedule(dflt).bound_by
+        assert b["c4"] == BoundBy("edge", edge=("state", "w1n0.lw", "a0.acc"), blocker="c0")
+        assert b["c5"] == BoundBy("edge", edge=("state", "w1n1.lw", "a1.acc"), blocker="c1")
+        assert b["c6"] == BoundBy("edge", edge=("mem", "a0.h.wr", "b.h0.rd"), blocker="c4")
+
+    def test_pools_of_the_competing_reads(self, dflt):
+        res = {(r.node, r.resource): (r.start, r.end) for c in dflt.chains for r in c.reservations
+               if r.resource.startswith("srf.E2W")}
+        assert res[("w1n0.rd", "srf.E2W.W.lw")] == (1, 29)
+        assert res[("a0.x.rd", "srf.E2W.W")] == (1, 137)
+
+    def test_hop_tail_off_same_total(self, m):
+        assert schedule(build_chains(build_mlp(), m, hop_tail=False)).total == 506
+
+    def test_deterministic(self, m):
+        assert schedule(build_chains(build_mlp(), m)) == schedule(build_chains(build_mlp(), m))
+
+    def test_wider_srf_equals_default(self, m):
+        """streams_per_direction = 64 时，四种选项都是 506（流不再是瓶颈）。"""
+        import copy
+        from ltsim.machine.model import Machine
+        raw = copy.deepcopy(dict(m.raw))
+        raw["srf"]["streams_per_direction"] = 64
+        m64 = Machine(raw)
+        for pool in ("half", "direction"):
+            for lw in ("separate", "shared"):
+                assert schedule(build_chains(build_mlp(), m64, srf_pool=pool, lw_streams=lw)).total == 506
 
 
 # ---- 计数资源：先合并分段再检查 ------------------------------------------------
@@ -88,56 +151,56 @@ def _overlap_graph():
 
 class TestAggregatedFit:
     def test_segments_merge_overlaps(self, m, R):
-        cg = build_chains(_overlap_graph(), m)
+        cg = build_chains(_overlap_graph(), m, **LEGACY)
         segs = [s for s in fit_segments(cg.chain("c1"), R) if s.resource == "srf.W2E"]
-        # 三条读的流都在 [1, 1+8+19+2) = [1,30)，合并成一段 12
-        assert segs == [Segment("srf.W2E", 1, 30, 12)]
+        # 三条读的流都在 [1, 1+8+2) = [1,11)，合并成一段 12
+        assert segs == [Segment("srf.W2E", 1, 11, 12)]
 
     def test_no_over_commit(self, m, R):
         """逐条检查时 B 会被放在 T=0（每条 24+4 ≤ 32），实际峰值 36；合并后 B 被推到
-        A 的流释放之后：[1,30) 最后一拍 29 → T = 30 − 1 = 29。"""
-        cg = build_chains(_overlap_graph(), m)
-        p = schedule(cg, R)
-        assert p.start == {"c0": 0, "c1": 29}
+        A 的流释放之后：[1,11) 最后一拍 10 → T = 11 − 1 = 10。"""
+        cg = build_chains(_overlap_graph(), m, **LEGACY)
+        p = schedule(cg)
+        assert p.start == {"c0": 0, "c1": 10}
         assert p.bound_by["c1"] == BoundBy("resource", resource="srf.W2E", blocker="c0")
-        assert verify(cg, p, R) == []
+        assert verify(cg, p) == []
 
     def test_mlp_c4_segments(self, mlp, R):
-        """c4 的 W2E：acc [34,202) 4、读 B1 [53,202) 4、vxm [115,264) 1 → 4 / 8 / 9 / 1。"""
+        """c4 的 W2E：acc [34,183) 4、读 B1 [53,183) 4、vxm [115,245) 1 → 4 / 8 / 9 / 1。"""
         segs = [(s.start, s.end, s.amount) for s in fit_segments(mlp.chain("c4"), R) if s.resource == "srf.W2E"]
-        assert segs == [(34, 53, 4), (53, 115, 8), (115, 202, 9), (202, 264, 1)]
+        assert segs == [(34, 53, 4), (53, 115, 8), (115, 183, 9), (183, 245, 1)]
 
 
 # ---- topo 策略 ---------------------------------------------------------------
 
 class TestTopo:
     def test_mlp(self, mlp, R):
-        p = schedule(mlp, R, "topo")
+        p = schedule(mlp, "topo")
         assert p.order == ("c0", "c1", "c2", "c3", "c4", "c5", "c6")      # Kahn 序，平局取 id 小的
-        assert p.start == {"c0": 0, "c1": 0, "c2": 0, "c3": 0, "c4": 47, "c5": 47, "c6": 312}
+        assert p.start == {"c0": 0, "c1": 0, "c2": 0, "c3": 0, "c4": 28, "c5": 28, "c6": 274}
         assert p.bound_by["c4"] == BoundBy("resource", resource="srf.E2W", blocker="c0")
-        # c5 的 est 是 21，但不插空：不能早于前一条 c4 的 47；47 处资源放得下
+        # c5 的 est 是 21，但不插空：不能早于前一条 c4 的 28；28 处资源放得下
         assert p.bound_by["c5"] == BoundBy("policy", blocker="c4")
-        assert p.total == 551 and verify(mlp, p, R) == []
+        assert p.total == 513 and verify(mlp, p) == []
 
     def test_start_times_non_decreasing(self, m, R):
-        cg = build_chains(build_gemm(256, 640, 1280, tile_m=128), m)
-        p = schedule(cg, R, "topo")
+        cg = build_chains(build_gemm(256, 640, 1280, tile_m=128), m, **LEGACY)
+        p = schedule(cg, "topo")
         ts = [p.start[c] for c in p.order]
         assert ts == sorted(ts)
-        assert verify(cg, p, R) == []
+        assert verify(cg, p) == []
 
     def test_not_better_than_bottom_level_here(self, m, R):
-        cg = build_chains(build_gemm(256, 640, 1280, tile_m=128), m)
-        assert schedule(cg, R, "topo").total >= schedule(cg, R).total
+        cg = build_chains(build_gemm(256, 640, 1280, tile_m=128), m, **LEGACY)
+        assert schedule(cg, "topo").total >= schedule(cg).total
 
 
 # ---- double weight bank：装载与计算重叠 ----------------------------------------
 
 def _plane_timeline(banks, m):
     g = build_gemm(256, 640, 1280, tile_m=128, banks=banks)      # w0 上 4 个权重块：(n0,k0) (n0,k1) (n2,k0) (n2,k1)
-    cg = build_chains(g, m)
-    p = schedule(cg, m.resources())
+    cg = build_chains(g, m, **LEGACY)
+    p = schedule(cg)
     blocks = []
     for n, k in ((0, 0), (0, 1), (2, 0), (2, 1)):
         lw, accs = f"w.n{n}k{k}.lw", [f"m{mm}n{n}k{k}.acc" for mm in (0, 1)]
@@ -149,7 +212,7 @@ def _plane_timeline(banks, m):
 class TestDoubleBuffer:
     def test_alternate_hides_weight_load(self, m):
         blocks, p, cg = _plane_timeline("alternate", m)
-        assert verify(cg, p, m.resources()) == []
+        assert verify(cg, p) == []
         for prev, cur in zip(blocks, blocks[1:]):
             # 下一块的权重在上一块计算结束前就装完了
             assert cur["lw"][1] <= prev["acc"][1]
@@ -158,7 +221,7 @@ class TestDoubleBuffer:
 
     def test_single_waits_for_previous_block(self, m):
         blocks, p, cg = _plane_timeline("single", m)
-        assert verify(cg, p, m.resources()) == []
+        assert verify(cg, p) == []
         for prev, cur in zip(blocks, blocks[1:]):
             # 同一个 bank：要等上一块的计算全部结束才能装（bank_war）
             assert cur["lw"][0] >= prev["acc"][1]
@@ -179,19 +242,19 @@ def test_random_gemm_variants_are_valid(m, R):
         g = build_gemm(Mb * tile_m, Kb * 320, Nb * 320, tile_m=tile_m, planes=planes,
                        map=rng.choice(["k_split", "n_split", "round_robin"]),
                        banks=rng.choice(["alternate", "single"]))
-        cg = build_chains(g, m)
+        cg = build_chains(g, m, **LEGACY)
         for pol in ("bottom_level", "topo"):
-            p = schedule(cg, R, pol)
-            assert verify(cg, p, R) == [], (Mb, Kb, Nb, tile_m, planes, pol)
+            p = schedule(cg, pol)
+            assert verify(cg, p) == [], (Mb, Kb, Nb, tile_m, planes, pol)
             assert p.total == max(p.start[c.id] + c.length for c in cg.chains)
 
 
 # ---- verify 自身与参数 ---------------------------------------------------------
 
 def test_verify_catches_violations(mlp, R):
-    p = schedule(mlp, R)
+    p = schedule(mlp)
     bad = type(p)(p.policy, {**p.start, "c4": 0}, p.bound_by, p.order, p.total)   # c4 提前到 0
-    msgs = verify(mlp, bad, R)
+    msgs = verify(mlp, bad)
     assert any("edge" in s for s in msgs)                   # 违反 c0→c4 的 state 约束
     assert any("srf.E2W over capacity" in s for s in msgs)  # 与权重装载抢 E2W 流
 
@@ -199,7 +262,7 @@ def test_verify_catches_violations(mlp, R):
 @pytest.mark.parametrize("pol,msg", [("random:4:0", "deferred"), ("bogus", "policy must be")])
 def test_bad_policy(mlp, R, pol, msg):
     with pytest.raises(LTSError, match=f"LTS-E-ARG.*{msg}"):
-        schedule(mlp, R, pol)
+        schedule(mlp, pol)
 
 
 # ---- 逐拍参考调度器：守住"返回的是 est 之后最早的可行时刻" -----------------------
@@ -208,7 +271,7 @@ from ltsim.backend.scheduler import _kahn
 from ltsim.machine.model import Resource
 
 
-def reference_schedule(cg, resources, policy="bottom_level"):
+def reference_schedule(cg, policy="bottom_level"):
     """选链规则与 schedule() 相同；"放得下"用最朴素的方式判断：从 est 起逐个试 T，
     逐拍检查 已有占用 + 本链这一拍的总用量 ≤ 容量（独占资源容量 1）。不用日历、不做跳跃。"""
     chains = {c.id: c for c in cg.chains}
@@ -219,6 +282,7 @@ def reference_schedule(cg, resources, policy="bottom_level"):
         prio = {c: bl[c] for c in chains}
     else:
         prio = {c: -i for i, c in enumerate(_kahn(cg))}
+    resources = cg.resources
     use = {name: {} for name in resources}
     T, order = {}, []
 
@@ -245,8 +309,9 @@ def reference_schedule(cg, resources, policy="bottom_level"):
     return T, tuple(order)
 
 
+@pytest.mark.parametrize("opts", [LEGACY, {}], ids=["legacy", "default"])
 @pytest.mark.parametrize("pol", ["bottom_level", "topo"])
-def test_matches_reference_on_gemm(m, R, pol):
+def test_matches_reference_on_gemm(m, pol, opts):
     rng = random.Random(1)
     for _ in range(12):
         Mb, Kb, Nb = rng.randint(1, 2), rng.randint(1, 3), rng.randint(1, 3)
@@ -255,9 +320,9 @@ def test_matches_reference_on_gemm(m, R, pol):
                        planes=rng.choice([["mxm.w0"], ["mxm.w0", "mxm.w1"], ["mxm.e0", "mxm.e1"]]),
                        map=rng.choice(["k_split", "n_split", "round_robin"]),
                        banks=rng.choice(["alternate", "single"]))
-        cg = build_chains(g, m)
-        p = schedule(cg, R, pol)
-        assert (p.start, p.order) == reference_schedule(cg, R, pol)
+        cg = build_chains(g, m, **opts)
+        p = schedule(cg, pol)
+        assert (p.start, p.order) == reference_schedule(cg, pol)
 
 
 def _synthetic(rng, resources):
@@ -284,7 +349,7 @@ def _synthetic(rng, resources):
         chains.append(Chain(f"c{i}", (), F(1), {}, {}, max(r.end for r in rs), rs))
     edges = [ChainEdge(f"c{i}", f"c{j}", rng.randint(-5, 25), ("order", f"c{i}", f"c{j}"))
              for i in range(len(chains)) for j in range(i + 1, len(chains)) if rng.random() < 0.3]
-    return ChainGraph(tuple(chains), tuple(edges), {}, {})
+    return ChainGraph(tuple(chains), tuple(edges), {}, {}, resources)
 
 
 @pytest.mark.parametrize("pol", ["bottom_level", "topo"])
@@ -296,9 +361,9 @@ def test_matches_reference_on_synthetic_graphs(pol):
     kinds = set()
     for _ in range(400):
         cg = _synthetic(rng, resources)
-        p = schedule(cg, resources, pol)
-        assert (p.start, p.order) == reference_schedule(cg, resources, pol)
-        assert verify(cg, p, resources) == []
+        p = schedule(cg, pol)
+        assert (p.start, p.order) == reference_schedule(cg, pol)
+        assert verify(cg, p) == []
         kinds |= {b.kind for b in p.bound_by.values()}
     assert {"source", "edge", "resource"} <= kinds
 
@@ -317,28 +382,28 @@ def test_zero_length_interval_never_conflicts():
 
 class TestVerifyNegatives:
     def test_only_capacity(self, mlp, R):
-        """c4 提前 1 拍到 46：边约束仍成立（46 ≥ 21），只在第 47 拍和权重装载抢 E2W。"""
-        p = schedule(mlp, R)
-        bad = type(p)(p.policy, {**p.start, "c4": 46}, p.bound_by, p.order, p.total)
-        assert verify(mlp, bad, R) == ["srf.E2W over capacity 32 at 1 cycles, first 47 (usage 33)"]
+        """c4 提前 1 拍到 27：边约束仍成立（27 ≥ 21），只在第 28 拍和权重装载抢 E2W。"""
+        p = schedule(mlp)
+        bad = type(p)(p.policy, {**p.start, "c4": 27}, p.bound_by, p.order, p.total)
+        assert verify(mlp, bad) == ["srf.E2W over capacity 32 at 1 cycles, first 28 (usage 33)"]
 
     def test_only_exclusive(self, m, R):
         """GEMM 中同一 plane 上相邻两个 acc 链放在同一时刻：违反 acc_seq 边，并在 compute 端口上重叠。"""
-        cg = build_chains(build_gemm(256, 320, 320, tile_m=128, planes=["mxm.w0"]), m)
-        p = schedule(cg, R)
+        cg = build_chains(build_gemm(256, 320, 320, tile_m=128, planes=["mxm.w0"]), m, **LEGACY)
+        p = schedule(cg)
         a0, a1 = cg.chain_of["m0n0k0.acc"], cg.chain_of["m1n0k0.acc"]
         bad = type(p)(p.policy, {**p.start, a1: p.start[a0]}, p.bound_by, p.order, p.total)
-        msgs = verify(cg, bad, R)
+        msgs = verify(cg, bad)
         assert any(s.startswith("mxm.w0.compute over capacity 1") for s in msgs)
 
     def test_missing_chain_is_reported_not_raised(self, mlp, R):
-        p = schedule(mlp, R)
+        p = schedule(mlp)
         start = dict(p.start)
         del start["c3"]
-        assert verify(mlp, type(p)(p.policy, start, p.bound_by, p.order, p.total), R) == \
+        assert verify(mlp, type(p)(p.policy, start, p.bound_by, p.order, p.total)) == \
             ["no start time for chain(s) ['c3']"]
 
     def test_total_mismatch(self, mlp, R):
-        p = schedule(mlp, R)
-        assert verify(mlp, type(p)(p.policy, p.start, p.bound_by, p.order, 500), R) == \
-            ["total 500 != max(T + len) = 551"]
+        p = schedule(mlp)
+        assert verify(mlp, type(p)(p.policy, p.start, p.bound_by, p.order, 500)) == \
+            ["total 500 != max(T + len) = 513"]

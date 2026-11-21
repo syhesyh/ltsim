@@ -154,6 +154,7 @@
 <!-- ============ 2. MLP ============ -->
 <h2>2. 例子一（MLP）：资源竞争怎么推迟一条链</h2>
 <div class="panel">
+  <div class="note"><b>注意：本节的时间线用的是旧的流池选项</b>（<code>--srf-pool direction --lw-streams shared</code>：每个方向一个流池，权重装载与其他数据共用）。现在的默认选项把流按东西两半分池、权重装载另用一批流（<code>backend.md</code> §4.4.1），读 X 不再与权重读争流：c4/c5 在 state 边要求的第 21 拍开始，c6 在 267，<b>总周期 506 = 下界</b>（<code>backend.md</code> §8.3）。下面画的 513 是旧选项下的结果（§8.4），用来演示资源竞争如何推迟一条链。</div>
   <p>两层 MLP：fc1 在西侧两个 MXM，fc2 在东侧。展开成 <b>7 条链</b>：4 条装权重、2 条第一层、1 条第二层。B2 算出各链长度（c0/c1 装 W1 长 48，c2/c3 装 W2 长 49，c4/c5 第一层长 265，c6 第二层长 239）。B3 按 bottom-level 优先级逐条放入日历：</p>
 
   <div class="legend">
@@ -165,37 +166,37 @@
 
   <!-- scale: 2px per cycle, total 560 cycles -> 1120px. Use scale 1.9 -->
   <div class="tl">
-    <div class="tl-row"><div class="tl-label">c0 装W1左半 (w0)<br>bl=525</div>
+    <div class="tl-row"><div class="tl-label">c0 装W1左半 (w0)<br>bl=506</div>
       <div class="tl-track"><div class="bar w" style="left:0px;width:91px">0–48 · 占16条E2W流</div></div></div>
-    <div class="tl-row"><div class="tl-label">c1 装W1右半 (w1)<br>bl=525</div>
+    <div class="tl-row"><div class="tl-label">c1 装W1右半 (w1)<br>bl=506</div>
       <div class="tl-track"><div class="bar w" style="left:0px;width:91px">0–48 · 16+16=<b>32条占满</b></div></div></div>
     <div class="tl-row"><div class="tl-label">c2 装W2上半 (e0)<br>bl=260</div>
       <div class="tl-track"><div class="bar w" style="left:0px;width:93px">0–49 · 走W2E方向不冲突</div></div></div>
     <div class="tl-row"><div class="tl-label">c3 装W2下半 (e1)<br>bl=260</div>
       <div class="tl-track"><div class="bar w" style="left:0px;width:93px">0–49</div></div></div>
-    <div class="tl-row"><div class="tl-label">c4 第一层左半<br>bl=504</div>
+    <div class="tl-row"><div class="tl-label">c4 第一层左半<br>bl=485</div>
       <div class="tl-track">
-        <div class="gap-marker" style="left:40px;width:49px">等流 21→47</div>
-        <div class="bar mw" style="left:89px;width:504px">47–312（est=21，被 srf.E2W 推后）</div>
+        <div class="gap-marker" style="left:40px;width:13px">等流 21→28</div>
+        <div class="bar mw" style="left:53px;width:504px">28–293（est=21，被 srf.E2W 推后）</div>
       </div></div>
-    <div class="tl-row"><div class="tl-label">c5 第一层右半<br>bl=504</div>
+    <div class="tl-row"><div class="tl-label">c5 第一层右半<br>bl=485</div>
       <div class="tl-track">
-        <div class="gap-marker" style="left:40px;width:49px"></div>
-        <div class="bar mw" style="left:89px;width:504px">47–312</div>
+        <div class="gap-marker" style="left:40px;width:13px"></div>
+        <div class="bar mw" style="left:53px;width:504px">28–293</div>
       </div></div>
     <div class="tl-row"><div class="tl-label">c6 第二层<br>bl=239</div>
       <div class="tl-track">
-        <div class="bar me" style="left:593px;width:454px">312–551（等 c4/c5 写完 H，mem 边）</div>
+        <div class="bar me" style="left:521px;width:454px">274–513（等 c4/c5 写完 H，mem 边；不等写节点的 19 拍收尾）</div>
       </div></div>
   </div>
   <div class="axis" style="width:calc(100% - 190px)">
     <div class="tick" style="left:0%">0</div>
-    <div class="tick" style="left:8.9%">47</div>
-    <div class="tick" style="left:56.6%">312</div>
-    <div class="tick" style="left:99%">551</div>
+    <div class="tick" style="left:5.1%">28</div>
+    <div class="tick" style="left:49.7%">274</div>
+    <div class="tick" style="left:93.1%">513</div>
   </div>
 
-  <div class="note"><b>关键一幕：</b>c4 的依赖第 21 拍就满足了（权重已装完），但它的读 X 需要 1 条 E2W 方向的流，而 [1,48) 内 32 条流被 c0/c1 占满。<code>earliest_fit</code> 直接把 T 从 21 跳到 <b>47</b>，并记下 <code>bound_by = (资源 srf.E2W, 占用者 c0)</code>。<b>总周期 551，下界 525，gap 4.95%</b>——这 26 拍就是"两块权重同时装"的代价，改决策（错开装载）即可消除。</div>
+  <div class="note"><b>关键一幕：</b>c4 的依赖第 21 拍就满足了（权重已装完），但它的读 X 需要 1 条 E2W 方向的流，而 [1,29) 内 32 条流被 c0/c1 占满。<code>earliest_fit</code> 直接把 T 从 21 跳到 <b>28</b>，并记下 <code>bound_by = (资源 srf.E2W, 占用者 c0)</code>。<b>总周期 513，下界 506，gap 1.38%</b>——这 7 拍就是"两块权重同时装"的代价，具体是流预留里的 hop 尾巴（权重流要多占 8 拍 hop 才释放）；改决策（错开装载）即可消除。c6 在 274 开始，早于 c4/c5 结束的 293：mem 边只等写节点在 superlane 0 写完，不加命令波的 19 拍。</div>
 
   <p class="dim">判定公式：T<sub>c</sub> = earliest_fit( max(依赖 est)，资源日历 )。每条链放一次、不后悔；bound_by 记录它"为什么不能再早"（边 / 资源+占用者 / source）。</p>
 </div>
@@ -203,6 +204,7 @@
 <!-- ============ 3. GEMM ============ -->
 <h2>3. 例子二（大 GEMM）：double weight bank 的装载-计算重叠</h2>
 <div class="panel">
+  <div class="note"><b>注意：</b>本节的数字（13099、single 时 13361、读 X 等权重流释放）同样是旧的流池选项（<code>--srf-pool direction --lw-streams shared</code>）下的。默认选项下权重装载有自己的流，同一个 GEMM 是 13092（single 时 13268）。</div>
   <p>M=1024, K=1280, N=1920（INT8）。决策：<code>tile_m=128, tile_k=tile_n=320</code> → 8 m块 × 4 k块 × 6 n块；绑 <code>{w0,w1}</code> n_split；<code>banks: alternate</code>。机器参数：装一块权重 <b>20 拍</b>（320行/每拍16行），一个 (m,n,k) 的 acc 占 <b>128 拍</b>，<code>block_switch_gap=5</code>，<code>lw_to_acc_gap=1</code>。</p>
 
   <p><b>double buffer 由三条边编出来（无需新机制）：</b></p>
@@ -226,25 +228,25 @@
     <div class="tl-row"><div class="tl-label">mxm.w0.weight<br>（装权重）</div>
       <div class="tl-track">
         <div class="bar w" style="left:40px;width:60px">lw₀ 9–29</div>
-        <div class="bar w" style="left:100px;width:60px">lw₁ 29–49</div>
+        <div class="bar w" style="left:100px;width:60px">lw₁ 37–57</div>
         <div class="brk" style="left:170px;width:36px">…</div>
-        <div class="bar w" style="left:210px;width:60px">lw₂ 1058</div>
+        <div class="bar w" style="left:210px;width:60px">lw₂ 1065–1085</div>
         <div class="tag" style="left:40px;top:-16px">bank0</div>
         <div class="tag" style="left:100px;top:-16px">bank1</div>
         <div class="tag" style="left:210px;top:-16px">bank0</div>
       </div></div>
     <div class="tl-row"><div class="tl-label">mxm.w0.compute<br>（计算，8个m块/块）</div>
       <div class="tl-track">
-        <div class="gap-marker" style="left:40px;width:50px">等lw₀ 30</div>
-        <div class="bar mw" style="left:90px;width:240px">acc₀ (n0,k0) 30–1054 · 8×128拍</div>
+        <div class="gap-marker" style="left:40px;width:50px">等流 30→37</div>
+        <div class="bar mw" style="left:90px;width:240px">acc₀ (n0,k0) 37–1061 · 8×128拍</div>
         <div class="brk" style="left:336px;width:20px">+5</div>
-        <div class="bar mw" style="left:360px;width:240px">acc₁ (n0,k1) 1059–2083</div>
+        <div class="bar mw" style="left:360px;width:240px">acc₁ (n0,k1) 1066–2090</div>
       </div></div>
   </div>
 
-  <div class="good"><b>重叠成立：</b>lw₁ 在第 29 拍（acc₀ 刚开始算）就紧贴启动，49 拍装完 bank1——完全藏在 acc₀ 的 1024 拍计算里。同理 lw₂ 藏在 acc₁ 里。日历上这是<b>两个不同独占资源（weight / compute）的区间天然重叠</b>，互不冲突，无需逐拍仿真即可判定。plane 效率 ≈ 96%（只暴露首块装载 29 拍 + 每块 5 拍切换）。</div>
+  <div class="good"><b>重叠成立：</b>lw₁ 在第 37 拍（acc₀ 开始算的同一拍，lw_after_iw 允许提前 1 拍，但读权重的 E2W 流要等 lw₀ 的流在第 29 拍释放）启动，57 拍装完 bank1——完全藏在 acc₀ 的 1024 拍计算里。同理 lw₂（1065–1085）藏在 acc₁ 里。acc₀ 的 state 依赖第 30 拍就满足了，但读 X 的 E2W 流被 w0/w1 两块权重装载占满到第 29 拍，所以链在 28 开始、acc 在 37。日历上这是<b>两个不同独占资源（weight / compute）的区间天然重叠</b>，互不冲突，无需逐拍仿真即可判定。w0 的计算占 [0, 12380) 的 99.3%（只暴露首块前的 37 拍 + 11 次换块各 5 拍）；整个 GEMM 总周期 13099。以上数字均为 <code>build_gemm(1024, 1280, 1920, tile_m=128)</code> 的实测值。</div>
 
-  <div class="note"><b>overlap 何时被打破？</b>① w0+w1 同时装载要 32 条 E2W 流，若 X 的读也走同方向 → 计数日历让后到者跳开，装载推迟；② <code>banks: single</code> 时 bank_war 强制"装下一块等当前块算完"，compute 线程出现 20 拍空窗，trace 上立即可见。</div>
+  <div class="note"><b>overlap 何时被打破？</b>① w0+w1 同时装载要 32 条 E2W 流，若 X 的读也走同方向 → 计数日历让后到者跳开，装载推迟；② <code>banks: single</code> 时 bank_war 强制"装下一块等当前块算完"，compute 线程每次换块出现 28 拍空窗（实测；总周期 13099 → 13361），trace 上立即可见。</div>
 </div>
 
 <!-- ============ 4. 与 GTSim 对比 ============ -->
@@ -264,8 +266,8 @@
 <!-- ============ 5. 三要素总结 ============ -->
 <h2>5. 总结：一个算子的执行时刻由什么决定</h2>
 <div class="three">
-  <div class="card"><b>① 链内偏移 o（B2）</b>由延迟 L 和传播 hop 的等式决定：ASAP 正向 → ALAP 反推对齐 → 核对。流不能等待，所以相对时刻刚性。</div>
-  <div class="card"><b>② 依赖 est + 优先级（B3）</b>链间边给出 est；bottom-level 优先级让关键路径上的链先挑资源。</div>
+  <div class="card"><b>① 链内偏移 o（B2）</b>每条 stream 边都是等式 o(v) = o(u) + L(u) + hop + r0/ρ，沿生成树传播后核对全部边。流不能等待，所以相对时刻刚性。</div>
+  <div class="card"><b>② 依赖 est + 优先级（B3）</b>链间边给出 est；bottom-level 优先级让关键路径上的链先挑资源（SSGS 列表调度）。</div>
   <div class="card"><b>③ 资源日历 earliest_fit（B3）</b>est 处放不下就跳到冲突结束的最早时刻；bound_by 记录被哪条边/哪个资源卡住。</div>
 </div>
 <p style="text-align:center;margin-top:18px" class="dim">最终：start(算子) = T<sub>链</sub> + o<sub>节点</sub> —— 结果总是"估计值 + 下界 + 关键路径"，偏乐观，代表好编译下能达到的性能。</p>

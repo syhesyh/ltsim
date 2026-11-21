@@ -13,6 +13,8 @@ srf:
   streams_per_direction: 32                  # contract
   hop_cycles: 1                              # contract: srf.transport_hop_cycles
   wave_skew_cycles: 19                       # derived: MEM/MXM 命令波每 superlane 晚 1 拍，共 superlanes-1
+                                             # 只用于节点 done 与链长（最后一个 superlane 收尾）；两个都跟着命令波走的
+                                             # 操作之间比较时两边抵消，不加（backend.md §4.4、§4.6）
 
 hops:                                        # derived（乐观）：由合同 x 坐标算出，MEM 取离对方最近的 quad，穿过 VXM 另加 3
   MEM_W>MXM_W: 8
@@ -63,7 +65,9 @@ mxm:
     f16: 50                                  # assumed（用户给定）：i8 的 2 倍；待 M2 校准
     bf16: 50                                 # assumed（用户给定）：同 f16；待 M2 校准
   lw_to_acc_gap: 1                           # derived: gemm.py 中最后一条 LW 之后 1 拍是 IW，再下一拍 ABC
-  block_switch_gap: 5                        # derived: gemm.py 中下一块首个 ACC ≥ 上一块末个 ACC + 6；源于合同 iw_acc=false
+  block_switch_gap: 5                        # derived: compiler/backend/kernels/gemm.py 换块、compiler/backend/timing.py：
+                                             # 下一块 IW 要等上一块末个 ACC 之后 iw_pending_gap = 4（int8_dot 3 + psum_add 1），
+                                             # IW→ABC→ACC 各 1 拍，故下一块首个 ACC ≥ 上一块末个 ACC + 6，相对 issue_end 为 5
 
 vxm:
   alus: 16                                   # contract

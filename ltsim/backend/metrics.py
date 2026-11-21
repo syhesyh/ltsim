@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 from fractions import Fraction as F
-from typing import Mapping
 
 from ..graph.tile_graph import TileGraph
-from ..machine.model import Resource
 from .chains import ChainGraph
 from .scheduler import Placed
 
@@ -23,9 +21,10 @@ def node_times(cg: ChainGraph, placed: Placed) -> dict[str, tuple[int, int, int]
     return out
 
 
-def resource_usage(cg: ChainGraph, placed: Placed, resources: Mapping[str, Resource]) -> dict[str, dict]:
-    """每个资源（含没被用到的）：busy = 占用量 > 0 的拍数；area = Σ 用量 × 时长；peak = 逐拍峰值；
+def resource_usage(cg: ChainGraph, placed: Placed) -> dict[str, dict]:
+    """cg.resources 里的每个资源（含没被用到的）：busy = 占用量 > 0 的拍数；area = Σ 用量 × 时长；peak = 逐拍峰值；
     utilization = area / (容量 × total)（独占资源即 busy / total）；avg = area / total（时间加权平均占用）。"""
+    resources = cg.resources
     ivs: dict[str, list[tuple[int, int, int]]] = {name: [] for name in resources}
     for c in cg.chains:
         t = placed.start[c.id]

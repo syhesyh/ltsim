@@ -55,18 +55,36 @@ M2 依赖外部的 lpu-sim 和开发不完善的 lpu-compiler，是最大的外�
 
 **关键结果：**
 
-- 设计 §6.3 的 MLP：总周期 551，下界 525，关键路径 c0 → c4 → c6，与 backend.md §8 的手算表一致；
-- **551 是最优。** 与下界之间的 26 拍全部来自下界偏松，不是调度器的损失；
-- 74 个随机 GEMM 变体上，SSGS 有 93% 恰好最优，平均比最优多 0.30%。已知弱点：banks = single 时会把两个 plane 的权重装载放在同一时刻，
-  偏悲观约 4%（见待定项 T7）。统计见 backend.md §9；
-- 测试：`python -m pytest tests -q` 共 368 个；没装 OR-Tools 时 oracle 测试跳过。
-  MLP 与一个 single-bank GEMM 的 `result.json` 有金标准快照（`test_golden.py`）；`schema.json` 与 B0 的规则由测试保持同步；
+- 设计 §6.3 的 MLP，默认选项（流池 `half` + `separate`）：总周期 506，等于下界（路径界；资源界是 `vxm.alu` 的 136），
+  关键路径 c0 → c4 → c6 全部是依赖边，与 backend.md §8.3 的手算表一致；不带 hop 尾巴也是 506；
+- 旧选项（`--srf-pool direction --lw-streams shared`）：513 / 下界 506（2026-11-21 修订 wave 规则之前是 551 / 525），
+  不带 hop 尾巴 506，见 backend.md §8.4。**513 是这组选项下的最优**：与下界之间的 7 拍全部来自下界偏松，不是调度器的损失；
+- 74 个随机 GEMM 变体上，SSGS 有 93% 恰好最优，平均比最优多 0.30%（2026-11-08 在旧的 wave 规则下测的，没有重测）。
+  已知弱点：banks = single 时会把两个 plane 上对称的链放在同一时刻，已知的例子上（旧流池选项）偏悲观 0.22%（1339 对 1336；旧规则下 4.37%，见待定项 T7；默认选项下这个例子是 1308 = LB）。
+  统计见 backend.md §9；
+- 测试：`python -m pytest tests -q` 共 435 个；没装 OR-Tools 时 oracle 测试跳过。手算核对过的旧数字由显式传旧选项的用例守着；
+  MLP 与一个 single-bank GEMM 的 `result.json` 有金标准快照（`test_golden.py`，默认选项，含 `no_hop_tail`）；`schema.json` 与 B0 的规则由测试保持同步；
 - 验收：trace 已由用户在 Perfetto UI 中目视确认（2026-11-08）；
 - 复核：B0–B4、trace 都经过独立 verifier 复核；CLI 与 oracle 没有单独复核（用户决定先不做，2026-11-08）。
+- 2026-11-21 引入流资源池（`srf_pool` / `lw_streams` / 带与不带 hop 尾巴两个结果，用户批准）：资源表改由 `ChainGraph.resources`
+  唯一提供；`result.json` 升到 `lts-result/0.2`；金标准快照按默认选项重新生成（MLP 513 → 506，GEMM 769 → 754）。
+  独立 verifier 复核通过（旧选项数字 513/769/1267/1339 全部复现、新默认 506 手算一致、40 次 oracle 全 OPTIMAL 且满足 LB ≤ OPT ≤ SSGS）；
+  复核发现的 `no_hop_tail` 一致性检查偏弱已修（`ChainGraph` 记录建链选项，`build_result` 逐项核对：同图、同 mem_overlap/srf_pool/lw_streams、
+  hop_tail 一真一假，补了三个负例测试），文档三处小问题（srf 样例省略号、`load_machine` 位置、HTML 的 ASAP/ALAP 过时表述）已修正。
+- 2026-11-21 `gen gemm` 增强走了 /dev：planes 可跨东西两侧（用满 4 个 MXM，N 块分侧、张量按侧复制）+ K 合并 partial
+  交替放置（`p_placement`，默认 auto：Kb×V > 32 时按 k 奇偶分放两侧，流宽上限 32→64）。单侧输出与改动前逐字节一致
+  （金标准未动）；GEMV（8×4096×4096）从 CLI 可复现：1905 / 1280，LB 1600 / 1190。独立 verifier（fork）复核通过
+  （合并链逐条预留 32+32 手算核对、旧版 5 种配置字节对比、边界形状仍报错）。实现与验证均由主 agent 侧的 claude-k3
+  完成（当日 opus 子 agent 配额耗尽，实现为接管、验证为 fork）。
+- 2026-11-21 的 wave 规则修订走了 /dev：独立 verifier 复核通过（手算 MLP 513 / 506；与修订前的代码对照，只有依赖 wave 的数字变了），指出的文档问题已修正，并补了写延迟只算一次的回归测试。
 
 **与设计的偏离**（逐条见 backend.md 中"与设计的偏离"）：链内偏移改为等式传播；计数资源先合并分段再检查；
 row 模式用逐 word 的精确公式；MXM roofline 按实际权重块算；流向箭头按边依赖的时刻放；关键路径分行；
-lane 宽检查放到 B0；MXM 支持 f16 / bf16。
+lane 宽检查放到 B0；MXM 支持 f16 / bf16；**流预留与 mem 边不加 `wave_skew`**（2026-11-21 规则修订，用户批准：
+两个都跟着命令波走的操作之间，每个 superlane 上的偏移两边抵消；`wave_skew` 只留在节点 done、链长和总周期里。
+MLP 551 → 513，见 backend.md §4.4；待 M2 的 GEMV 校准确认）；**SRF 流按池建模**（2026-11-21，用户批准）：设计每个方向一个池、
+流预留总带 hop 尾巴；ltsim 默认按东西两半分池、权重装载另用一批流，并同时报告带 / 不带 hop 尾巴的结果（backend.md §4.4.1；
+都是假设，见待定项 T11–T13）。
 
 **M0 内推迟的事项：** `random:K:seed` 调度策略（待定项 T6）。
 
@@ -98,6 +116,19 @@ lane 宽检查放到 B0；MXM 支持 f16 / bf16。
   - MEM 到 MEM 的拷贝；
   - 对半树的单层，n ∈ {2, 25, 197}；
   - 运行时权重的装载；
+  - **GEMV**（M = 8，例如 8×1280×1280；条件允许时加 8×4096×4096）：大量权重连续流入 MXM，是 decode 阶段的典型负载，对流资源的建模规则最敏感。
+    2026-11-21 的实验：Y[8,4096] = X[8,4096]·W[4096,4096]，i8 → i32，tile 256×256（4096 不能被 320 整除）；4 个 plane，
+    前 8 个 N 块在西侧 w0 / w1 交替，后 8 个在东侧 e0 / e1；权重放在所用 plane 的半球，每个半球各一份 X；banks = alternate；
+    K 方向用 4 路扇入的 vxm add 树合并，每层写回 MEM（不融合）。roofline = 65536 行权重 / (4 plane × 每拍 16 行) = 1024 拍。
+    结果：旧 wave 规则 5205（5.1 倍）；现在的模型在旧流池选项下 2983（2.9 倍）；再去掉流预留的 hop 尾巴 2221；再把流按东西两半分段复用 1803。
+    按流资源池（backend.md §4.4.1）的四种组合，带 / 不带 hop 尾巴：`direction + shared` 2983 / 2221；`half + shared` 2291 / 1803；
+    `direction + separate` 1716 / 1387；**默认 `half + separate` 1716 / 1237**（带尾巴时下界 1600，取在 `srf.W2E.E.lw`；不带时下界 1149）。
+    2026-11-21 起 `gen gemm` 可以表达这个例子：`--planes w0,w1,e0,e1`（双侧 N 分块）+ partial 交替放置
+    （`p_placement=auto`，Kb×V = 64 > 32 时 P{k} 按 k 奇偶分放东西两侧，合并链读流对半进两个池，无需树形合并）。
+    与树形合并的差异：平铺合并每条链独占一个 32 流池，16 条合并链只能串行，所以带 hop 尾巴时 1905 比树形的 1716 慢 189 拍；
+    不带尾巴 1280 与树形的 1237 基本打平（下界同为 1600 / 1190 附近）。树形 K 合并仍未实现（ceil(Kb/2)×V > 32 时报 LTS-E-SRF-WIDTH）。
+    用它校准：流预留是否加 wave（2026-11-21 起已不加，见 backend.md §4.4，用它确认）、是否加 hop（T13）、流是否可以按半边分段复用（T11）、
+    权重装载是否有自己的流（T12）、是否固定占 16 条流；
 - 拟合 `acc_latency`、`op_overhead`、`write_latency`、`raw_gap` 等参数，把来源标记改为 calibrated。校准集一经固定不再改；
 - 写 `derive_machine.py`：从 `$LPU_SIM_ROOT/arch/full_lpu_v2.json` 生成 contract / derived 类参数，并记录合同的 sha256；
 - 顺带定下待定项 T4、T5。
@@ -149,10 +180,13 @@ LTS-IR 增加 `partition` 决策。后端不需要新机制，只是多了资源
 | T4 | 节点内第 i 行的时刻用 `ceil(i/ρ)` 还是 `floor(i/ρ)`（ρ > 1 时 `ceil` 与占用区间不自洽） | M2 | backend.md §11 |
 | T5 | assumed 参数待实测：f16 / bf16 的 acc 延迟与装载速率（用户给定）、MEM 每拍 44 个向量、设计 §12 列出的各项乐观假设 | M2 | `lpu-tile-v0.yaml` 的来源注释 |
 | T6 | `random:K:seed` 调度策略（推迟实现，规格已写在 backend.md §5.3） | M3 | backend.md §5.3 |
-| T7 | SSGS 在 banks = single 时偏悲观约 4%（对称的链被放在同一时刻），搜索打分会偏向 alternate | M3、M5 | backend.md §5.3、§9 |
+| T7 | SSGS 在 banks = single 时偏悲观（对称的链被放在同一时刻），搜索打分会偏向 alternate。已知的例子上从 4.37% 降到 0.22%（2026-11-21 的 wave 规则修订后，1339 对 1336；原来的损失大部分由流预留的 wave 尾巴造成），影响已经很小。这是旧流池选项下的数；默认选项（权重装载另用一批流）下这个例子 SSGS = LB = 1308 | M3、M5 | backend.md §5.3、§9 |
 | T8 | 性质测试没有用 Hypothesis（环境里没有），改用 `random.Random` 固定种子；需要时可以补 | — | backend.md §9 |
 | T9 | Go/No-Go 阈值（95% / ×1.05 / τ ≥ 0.8）需要与导师确认 | M5 | 设计 §9 |
 | T10 | `result.json` 的 `provenance` 里 `ltsim_commit` / `dirty` 仍写 null。ltsim 已是独立 git 仓库，可以改为取 `git rev-parse HEAD` 与工作区是否有未提交改动（不在 git 仓库里、或没有 git 时仍写 null）；金标准快照本来就去掉 `provenance`，不受影响 | — | backend.md §6 |
+| T11 | **SRF 流按东西两半分池（`srf_pool = half`，默认）是假设**：依据是流沿 x 方向只穿过源到目的之间的那一段（VXM 在中间不属于任何一半，跨中线的传输两半都占）；真实占用取决于 MEM slice 放在哪，模型没有 slice 放置。`direction` 保留旧行为 | M2（GEMV 用例）/ M6（slice 放置） | backend.md §4.4.1 |
+| T12 | **权重装载用自己的流（`lw_streams = separate`，默认）是乐观假设**：认为编译器总能让权重装载与其他数据（如送进 MXM 的激活）不争同一批流。影响大：GEMV（M2 一节）带 hop 尾巴时从 `shared` 的 2291（`half`）/ 2983（`direction`）降到 1716。`shared` 保留旧行为 | M2（GEMV 用例）/ M6 | backend.md §4.4.1 |
+| T13 | **流预留的 hop 尾巴长度不确定**：没有 slice 放置时说不准流在最后一个消费者之后还要占多久。在那之前 `run` 同时给出带（主结果）/ 不带（`no_hop_tail`）两个值夹住它；有了 slice 放置后改成按实际距离算，或由校准选定一个 | M2 / M6 | backend.md §4.4.1、§6 |
 
 ## 4. 仓库与环境
 

@@ -37,15 +37,25 @@ class TestGen:
 
 class TestRun:
     def test_mlp_end_to_end(self, tmp_path, capsys):
+        """默认选项（srf_pool = half、lw_streams = separate）：506 = LB，c4 只受 state 边约束（backend.md §8）。"""
         code, out, err = run(["run", FIXTURE, "--out", str(tmp_path / "r")], capsys)
         assert code == 0 and err == ""
-        assert "total_cycles 551" in out and "gap 4.95%" in out
-        assert "c0 [0,48) (source) → c4 [47,312) (resource srf.E2W, held by c0)" in out
+        lines = out.splitlines()
+        assert lines[0] == "total_cycles 506   lower bound 506 (path 506, resource 136 on vxm.alu)   gap 0.00%"
+        assert lines[1] == ("critical path: c0 [0,48) (source) → c4 [21,286) (edge state w1n0.lw→a0.acc) → "
+                            "c6 [267,506) (edge mem a0.h.wr→b.h0.rd)")
+        assert lines[2] == "without SRF hop tail: total_cycles 506   lower bound 506   gap 0.00%"
+        assert lines[3].startswith("wrote ") and len(lines) == 4
         r = json.load(open(tmp_path / "r" / "result.json"))
         t = json.load(open(tmp_path / "r" / "trace.json"))
-        assert r["total_cycles"] == 551 and t["otherData"]["total_cycles"] == 551
+        assert r["total_cycles"] == 506 and t["otherData"]["total_cycles"] == 506
+        assert t["otherData"]["no_hop_tail_total_cycles"] == 506
+        assert r["schema"] == "lts-result/0.2"
+        assert r["no_hop_tail"]["total_cycles"] == 506 and r["no_hop_tail"]["critical_path"] == ["c0", "c4", "c6"]
+        assert sorted(r["srf"]) == sorted(f"srf.{d}.{h}{x}" for d in ("W2E", "E2W") for h in "WE" for x in ("", ".lw"))
         prov = r["provenance"]
         assert prov["command"].startswith("python -m ltsim run ") and prov["policy"] == "bottom_level"
+        assert (prov["srf_pool"], prov["lw_streams"]) == ("half", "separate")
         import hashlib
         assert prov["tile_graph_sha256"] == hashlib.sha256(open(FIXTURE, "rb").read()).hexdigest()
         assert prov["machine_sha256"] == hashlib.sha256(open(DEFAULT_MACHINE_PATH, "rb").read()).hexdigest()
@@ -58,6 +68,33 @@ class TestRun:
         t = json.load(open(tmp_path / "r" / "trace.json"))
         assert (r["provenance"]["policy"], r["provenance"]["mem_overlap"]) == ("topo", "row")
         assert any(e.get("cat") == "stream" for e in t["traceEvents"])
+
+    def test_legacy_srf_options(self, tmp_path, capsys):
+        """旧选项（每个方向一个池、权重与其他数据共用）：513，c4 被 srf.E2W 卡在 28；不带 hop 尾巴时 506。"""
+        code, out, _ = run(["run", FIXTURE, "--out", str(tmp_path / "r"), "--srf-pool", "direction",
+                            "--lw-streams", "shared"], capsys)
+        assert code == 0
+        assert "total_cycles 513" in out and "gap 1.38%" in out
+        assert "c0 [0,48) (source) → c4 [28,293) (resource srf.E2W, held by c0)" in out
+        assert "without SRF hop tail: total_cycles 506   lower bound 506   gap 0.00%" in out
+        r = json.load(open(tmp_path / "r" / "result.json"))
+        assert (r["provenance"]["srf_pool"], r["provenance"]["lw_streams"]) == ("direction", "shared")
+        assert r["srf"] == {"srf.E2W": {"peak": 32, "avg": 4.869396}, "srf.W2E": {"peak": 32, "avg": 8.214425}}
+        assert r["no_hop_tail"]["total_cycles"] == 506
+        assert r["no_hop_tail"]["bounds"] == {"path": 506, "resource": 136, "resource_exact": "136",
+                                              "resource_name": "vxm.alu", "lb": 506, "gap": 0.0}
+
+    @pytest.mark.parametrize("pool,lw,total", [("half", "shared", 513), ("direction", "separate", 506)])
+    def test_mixed_srf_options(self, tmp_path, capsys, pool, lw, total):
+        code, out, _ = run(["run", FIXTURE, "--out", str(tmp_path / "r"), "--srf-pool", pool, "--lw-streams", lw], capsys)
+        assert code == 0 and f"total_cycles {total} " in out
+        r = json.load(open(tmp_path / "r" / "result.json"))
+        assert (r["provenance"]["srf_pool"], r["provenance"]["lw_streams"]) == (pool, lw)
+
+    def test_row_mode_has_no_hop_tail_too(self, tmp_path, capsys):
+        code, out, _ = run(["run", FIXTURE, "--out", str(tmp_path / "r"), "--mem-overlap", "row",
+                            "--srf-pool", "direction", "--lw-streams", "shared"], capsys)
+        assert code == 0 and "total_cycles 393 " in out and "without SRF hop tail: total_cycles 386 " in out
 
     def test_same_input_same_output(self, tmp_path, capsys):
         for d in ("a", "b"):
@@ -97,6 +134,14 @@ class TestErrors:
         code, _, err = run(["run", str(tmp_path / "nope.json"), "--out", str(tmp_path / "r")], capsys)
         assert code == 2 and "LTS-E-ARG" in err
 
+    @pytest.mark.parametrize("flag", ["--srf-pool", "--lw-streams"])
+    def test_bad_srf_option(self, tmp_path, capsys, flag):
+        """命令行上由 argparse 拒绝（退出码 2，与 --mem-overlap 一样）；API 层报 LTS-E-ARG（test_chains.py）。"""
+        with pytest.raises(SystemExit) as e:
+            main(["run", FIXTURE, "--out", str(tmp_path / "r"), flag, "bogus"])
+        assert e.value.code == 2 and "invalid choice" in capsys.readouterr().err
+        assert not (tmp_path / "r").exists()
+
     def test_unknown_machine(self, tmp_path, capsys):
         code, _, err = run(["run", FIXTURE, "--machine", "lpu-tile-v9", "--out", str(tmp_path / "r")], capsys)
         assert code == 2 and "LTS-E-MACHINE" in err
@@ -120,7 +165,7 @@ def test_python_dash_m(tmp_path):
     """python -m ltsim 能直接用。"""
     p = subprocess.run([sys.executable, "-m", "ltsim", "run", FIXTURE, "--out", str(tmp_path / "r")],
                        capture_output=True, text=True, cwd=ROOT)
-    assert p.returncode == 0 and "total_cycles 551" in p.stdout
+    assert p.returncode == 0 and "total_cycles 506" in p.stdout
     p = subprocess.run([sys.executable, "-m", "ltsim", "run", FIXTURE, "--out", str(tmp_path / "r")],
                        capture_output=True, text=True, cwd=ROOT)
     assert p.returncode == 2 and "already exists" in p.stderr

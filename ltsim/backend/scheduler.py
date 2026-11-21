@@ -102,7 +102,8 @@ def _kahn(cg: ChainGraph) -> list[str]:
     return order
 
 
-def schedule(cg: ChainGraph, resources: Mapping[str, Resource], policy: str = "bottom_level") -> Placed:
+def schedule(cg: ChainGraph, policy: str = "bottom_level") -> Placed:
+    """资源表取 cg.resources（组链时所用的那张表，含按选项划分的 SRF 流池）。"""
     if policy not in POLICIES:
         if policy.startswith("random"):
             raise LTSError("LTS-E-ARG", f"policy {policy!r}: random:K:seed is deferred (not implemented in v0)")
@@ -119,6 +120,7 @@ def schedule(cg: ChainGraph, resources: Mapping[str, Resource], policy: str = "b
     else:
         topo_index = {c: i for i, c in enumerate(_kahn(cg))}
         prio = {c: -topo_index[c] for c in chains}
+    resources = cg.resources
     segs = {c: fit_segments(chains[c], resources) for c in chains}
 
     cal: dict[str, ExclusiveCalendar | CounterCalendar] = {
@@ -172,8 +174,8 @@ def _earliest_fit(segs, t, cal) -> tuple[int, BoundBy | None]:
             return t, blocked
 
 
-def verify(cg: ChainGraph, placed: Placed, resources: Mapping[str, Resource]) -> list[str]:
-    """独立检查一份调度：每条链都有 T 且 T ≥ 0；order 覆盖全部链；total = max(T + len)；
+def verify(cg: ChainGraph, placed: Placed) -> list[str]:
+    """独立检查一份调度（资源表取 cg.resources）：每条链都有 T 且 T ≥ 0；order 覆盖全部链；total = max(T + len)；
     全部链间约束成立；任何一拍、任何资源不超容量。返回违反项（空表示合法）。
     不复用日历的代码，直接按预留表逐拍累加，供测试和 B4 自检使用。"""
     bad = []
@@ -198,7 +200,10 @@ def verify(cg: ChainGraph, placed: Placed, resources: Mapping[str, Resource]) ->
             for x in range(T[c.id] + r.start, T[c.id] + r.end):
                 u[x] = u.get(x, 0) + r.amount
     for name, u in use.items():
-        cap = resources[name].cap
+        if name not in cg.resources:
+            bad.append(f"resource {name!r} is not in the chain graph's resource table")
+            continue
+        cap = cg.resources[name].cap
         over = [x for x, v in u.items() if v > cap]
         if over:
             bad.append(f"{name} over capacity {cap} at {len(over)} cycles, first {min(over)} "

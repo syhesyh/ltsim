@@ -21,7 +21,13 @@ from ..machine.model import Machine
 
 PROCESSES = [(1, "Ops (LTS-IR)"), (2, "Chains"), (3, "MXM"), (4, "VXM"), (5, "SXM"),
              (6, "MEM-W"), (7, "MEM-E"), (8, "Counters"), (9, "Critical path")]
-COUNTERS = ("srf.W2E", "srf.E2W", "vxm.alu", "mem.W.rd", "mem.W.wr", "mem.E.rd", "mem.E.wr")
+
+
+def counter_names(resources: Mapping[str, Any]) -> list[str]:
+    """计数器：资源表里全部 SRF 流池（按名字排序）、vxm.alu、mem.*（按资源表的顺序：mem.W.rd、mem.W.wr、mem.E.rd、mem.E.wr）。"""
+    return (sorted(r for r in resources if r.startswith("srf.")) + [r for r in resources if r == "vxm.alu"]
+            + [r for r in resources if r.startswith("mem.")])
+
 _EPS = 1e-9                       # µs；1 拍 = cycle_ns / 1000 µs，远大于它
 
 
@@ -58,7 +64,10 @@ def _color(items: list[tuple[int, int, str]]) -> dict[str, int]:
 
 
 def build_trace(g: TileGraph, cg: ChainGraph, placed: Placed, m: Machine, *,
-                provenance: Mapping[str, Any] | None = None, stream_flows: bool = False) -> dict[str, Any]:
+                provenance: Mapping[str, Any] | None = None, stream_flows: bool = False,
+                no_hop_tail_total: int | None = None) -> dict[str, Any]:
+    """资源表（MXM / SXM 线程、计数器）取 cg.resources。no_hop_tail_total：不带 hop 尾巴的那次调度的总周期，
+    给出时写进 otherData（trace 只画主结果）。"""
     cycle_ns = float(m.raw.get("display", {}).get("cycle_ns", 1.0))
 
     def us(cycle: int) -> float:
@@ -68,7 +77,7 @@ def build_trace(g: TileGraph, cg: ChainGraph, placed: Placed, m: Machine, *,
     times = node_times(cg, placed)
     v_in = write_v_in(g)
     chain = {c.id: c for c in cg.chains}
-    resources = m.resources()
+    resources = cg.resources
 
     # ---- 节点的时间段：占用区间；写节点取 [start+L, start+L+D) ----
     span: dict[str, tuple[int, int]] = {}
@@ -155,7 +164,7 @@ def build_trace(g: TileGraph, cg: ChainGraph, placed: Placed, m: Machine, *,
 
     # pid 8：计数器，每次占用量变化输出一个点
     counters: list[dict[str, Any]] = []
-    for name in COUNTERS:
+    for name in counter_names(resources):
         delta: dict[int, int] = {}
         for c in cg.chains:
             t = placed.start[c.id]
@@ -221,9 +230,11 @@ def build_trace(g: TileGraph, cg: ChainGraph, placed: Placed, m: Machine, *,
         ev.append({"ph": "f", "bp": "e", "id": fl["id"], "cat": fl["cat"], "name": fl["name"], "pid": fp, "tid": ft,
                    "ts": us(fts), "args": meta})
 
-    trace = {"traceEvents": ev, "displayTimeUnit": "ns",
-             "otherData": {"schema": "lts-trace/0.1", "cycle_ns": cycle_ns, "total_cycles": placed.total,
-                           "skipped_flows": skipped, "provenance": dict(provenance or {})}}
+    other = {"schema": "lts-trace/0.1", "cycle_ns": cycle_ns, "total_cycles": placed.total}
+    if no_hop_tail_total is not None:
+        other["no_hop_tail_total_cycles"] = no_hop_tail_total
+    other.update({"skipped_flows": skipped, "provenance": dict(provenance or {})})
+    trace = {"traceEvents": ev, "displayTimeUnit": "ns", "otherData": other}
     bad = check_trace(trace)
     if bad:
         raise LTSError("LTS-E-TRACE", "trace failed self-check: " + "; ".join(bad[:5]))

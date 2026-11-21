@@ -3,7 +3,11 @@
     python -m ltsim gen mlp  --out <新目录>
     python -m ltsim gen gemm --M 256 --K 640 --N 1280 --tile-m 128 [...] --out <新目录>
     python -m ltsim run <tile_graph.json> [--machine <id 或 yaml 路径>] --out <新目录>
-                        [--policy bottom_level|topo] [--mem-overlap tile|row] [--trace-stream-flows]
+                        [--policy bottom_level|topo] [--mem-overlap tile|row]
+                        [--srf-pool half|direction] [--lw-streams separate|shared] [--trace-stream-flows]
+
+run 调度两次，只差流预留带不带 hop 尾巴：带尾巴的是主结果（total_cycles、trace、关键路径），
+不带的写进 result.json 的 no_hop_tail。
 
 输出目录必须是新目录：先全部算完、成功后才建目录写文件，失败时可以用同一个名字重跑。
 出错时把 "LTS-E-…: 说明" 打到 stderr，退出码 2。
@@ -22,11 +26,11 @@ from .backend.result import build_result, dumps_result, make_provenance
 from .backend.scheduler import POLICIES, schedule
 from .errors import LTSError
 from .gen.builder import graph_to_dict
-from .gen.gemm import build_gemm
+from .gen.gemm import P_PLACEMENT_MODES, build_gemm
 from .gen.mlp import build_mlp
 from .graph.dot import to_dot
 from .graph.load import load_graph, validate_graph
-from .machine.model import DEFAULT_MACHINE_PATH, load_machine
+from .machine.model import DEFAULT_MACHINE_PATH, LW_STREAM_MODES, SRF_POOL_MODES, load_machine
 from .trace.perfetto import build_trace, dumps_trace
 
 MACHINE_DIR = os.path.dirname(DEFAULT_MACHINE_PATH)
@@ -65,7 +69,8 @@ def cmd_gen(a: argparse.Namespace) -> int:
     else:
         planes = [p if p.startswith("mxm.") else f"mxm.{p}" for p in a.planes.split(",")]
         g = build_gemm(a.M, a.K, a.N, tile_m=a.tile_m, tile_k=a.tile_k, tile_n=a.tile_n, planes=planes,
-                       map=a.map, banks=a.banks, machine=load_machine(resolve_machine(a.machine)))
+                       map=a.map, banks=a.banks, p_placement=a.p_placement,
+                       machine=load_machine(resolve_machine(a.machine)))
     _write(a.out, {"tile_graph.json": _graph_json(g)})
     print(f"wrote {os.path.join(a.out, 'tile_graph.json')}: {len(g.nodes)} nodes, "
           f"{len(g.edges_stream) + len(g.edges_state) + len(g.edges_mem) + len(g.edges_order)} edges")
@@ -96,12 +101,16 @@ def cmd_run(a: argparse.Namespace, argv: list[str]) -> int:
         diagnostics.append({"level": "warning", "code": "LTS-W-MACHINE-ID", "msg": msg})
         print(f"warning: LTS-W-MACHINE-ID: {msg}", file=sys.stderr)
     validate_graph(g, m)
-    cg = build_chains(g, m, mem_overlap=a.mem_overlap)
-    placed = schedule(cg, m.resources(), a.policy)
-    prov = make_provenance(g, m, policy=a.policy, mem_overlap=a.mem_overlap, tile_graph_path=a.graph,
+    opts = {"mem_overlap": a.mem_overlap, "srf_pool": a.srf_pool, "lw_streams": a.lw_streams}
+    cg = build_chains(g, m, **opts)
+    placed = schedule(cg, a.policy)
+    cg2 = build_chains(g, m, **opts, hop_tail=False)
+    placed2 = schedule(cg2, a.policy)
+    prov = make_provenance(g, m, policy=a.policy, **opts, tile_graph_path=a.graph,
                            machine_path=machine_path, command="python -m ltsim " + shlex.join(argv))
-    result = build_result(g, cg, placed, m, prov, diagnostics)
-    trace = build_trace(g, cg, placed, m, provenance=prov, stream_flows=a.trace_stream_flows)
+    result = build_result(g, cg, placed, m, prov, diagnostics, no_hop_tail=(cg2, placed2))
+    trace = build_trace(g, cg, placed, m, provenance=prov, stream_flows=a.trace_stream_flows,
+                        no_hop_tail_total=placed2.total)
     files = {"result.json": dumps_result(result), "trace.json": dumps_trace(trace)}
     if a.dot:
         files["graph.dot"] = to_dot(g, cg.chain_of, name=os.path.basename(a.graph))
@@ -111,6 +120,9 @@ def cmd_run(a: argparse.Namespace, argv: list[str]) -> int:
     print(f"total_cycles {result['total_cycles']}   lower bound {b['lb']} "
           f"(path {b['path']}, resource {b['resource']} on {b['resource_name']})   gap {b['gap'] * 100:.2f}%")
     print("critical path: " + " → ".join(_describe(s) for s in result["critical_path_detail"]))
+    n = result["no_hop_tail"]
+    print(f"without SRF hop tail: total_cycles {n['total_cycles']}   lower bound {n['bounds']['lb']}   "
+          f"gap {n['bounds']['gap'] * 100:.2f}%")
     print("wrote " + ", ".join(os.path.join(a.out, f) for f in files))
     return 0
 
@@ -132,6 +144,8 @@ def build_parser() -> argparse.ArgumentParser:
     gg.add_argument("--planes", default="w0,w1", help="comma-separated, e.g. w0,w1 or e0,e1")
     gg.add_argument("--map", default="n_split", choices=["k_split", "n_split", "round_robin"])
     gg.add_argument("--banks", default="alternate", choices=["alternate", "single"])
+    gg.add_argument("--p-placement", default="auto", choices=list(P_PLACEMENT_MODES),
+                    help="partial tensor placement for K-merge: auto alternates sides only when Kb*V exceeds the stream pool")
     gg.add_argument("--machine", default="lpu-tile-v0", help="machine id or yaml path (for block sizes)")
     gg.add_argument("--out", required=True)
 
@@ -141,6 +155,10 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--out", required=True)
     run.add_argument("--policy", default="bottom_level", choices=list(POLICIES))
     run.add_argument("--mem-overlap", default="tile", choices=list(MEM_OVERLAP_MODES))
+    run.add_argument("--srf-pool", default="half", choices=list(SRF_POOL_MODES),
+                     help="SRF stream pools: per direction and W/E half (default), or one per direction")
+    run.add_argument("--lw-streams", default="separate", choices=list(LW_STREAM_MODES),
+                     help="weight-load streams in their own pool (default) or shared with other traffic")
     run.add_argument("--trace-stream-flows", action="store_true", help="also draw intra-chain stream edges")
     run.add_argument("--dot", action="store_true", help="also write graph.dot (Graphviz; one box per chain)")
     return p

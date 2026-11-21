@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from typing import Mapping
 
 from ..errors import LTSError
-from ..machine.model import Resource
 from .chains import ChainGraph
 from .scheduler import BoundBy, Placed, fit_segments, schedule, verify
 
@@ -26,14 +25,15 @@ class OracleResult:
     wall_s: float
 
 
-def solve_optimal(cg: ChainGraph, resources: Mapping[str, Resource], *, time_limit_s: float = 10.0,
-                  workers: int = 8) -> OracleResult:
+def solve_optimal(cg: ChainGraph, *, time_limit_s: float = 10.0, workers: int = 8) -> OracleResult:
+    """资源表取 cg.resources，与 B3 用同一张。"""
     try:
         from ortools.sat.python import cp_model
     except ImportError as e:                                    # pragma: no cover
         raise LTSError("LTS-E-ARG", "the oracle needs OR-Tools (pip install ortools)") from e
 
-    ssgs = schedule(cg, resources)                              # 可行解：给上界和初始提示
+    resources = cg.resources
+    ssgs = schedule(cg)                              # 可行解：给上界和初始提示
     horizon = ssgs.total
     md = cp_model.CpModel()
     T = {c.id: md.NewIntVar(0, horizon - c.length, f"T_{c.id}") for c in cg.chains}
@@ -77,7 +77,7 @@ def solve_optimal(cg: ChainGraph, resources: Mapping[str, Resource], *, time_lim
     # 用 B3 的 verify（逐拍累加，不复用 CP-SAT 模型）独立检查 oracle 的解
     placed = Placed("oracle", start, {c.id: BoundBy("source") for c in cg.chains},
                     tuple(sorted(start, key=lambda x: (start[x], x))), total)
-    bad = verify(cg, placed, resources)
+    bad = verify(cg, placed)
     if bad:
         raise LTSError("LTS-E-INTERNAL", "CP-SAT solution failed verify: " + "; ".join(bad[:3]))
     return OracleResult("OPTIMAL" if st == cp_model.OPTIMAL else "FEASIBLE", total,

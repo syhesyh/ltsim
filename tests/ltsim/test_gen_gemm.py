@@ -180,5 +180,93 @@ class TestGemmErrors:
             build_gemm(256, 640, 640, tile_m=128, tile_k=640)
 
     def test_mixed_sides(self):
+        """双侧已支持（Nb ≥ 2）；Nb < 2 不够分侧时报 LTS-E-GEN。"""
+        build_gemm(256, 640, 640, tile_m=128, planes=["mxm.w0", "mxm.e0"])
         with pytest.raises(LTSError, match="LTS-E-GEN"):
-            build_gemm(256, 640, 640, tile_m=128, planes=["mxm.w0", "mxm.e0"])
+            build_gemm(256, 640, 320, tile_m=128, planes=["mxm.w0", "mxm.e0"])     # Nb = 1
+
+    def test_bad_p_placement(self):
+        with pytest.raises(LTSError, match="LTS-E-ARG"):
+            build_gemm(256, 640, 640, tile_m=128, p_placement="sideways")
+
+
+# ---- 双侧模式与 partial 交替放置（gemm.py 模块 docstring）----------------------------
+
+FOUR = ("mxm.w0", "mxm.w1", "mxm.e0", "mxm.e1")
+
+
+def _gemv(**kw):
+    """8×4096×4096，tile 8×256×256：Kb = 16，合并链平铺读回需要 16×4 = 64 条流。"""
+    return build_gemm(8, 4096, 4096, tile_m=8, tile_k=256, tile_n=256, **kw)
+
+
+class TestDualSide:
+    def test_side_split_and_names(self):
+        g = _gemv(planes=FOUR)                                    # Nb = 16：n<8 西、其余东
+        assert set(g.tensors) >= {"XW", "XE", "WW", "WE", "YW", "YE"}
+        assert {t for t in g.tensors if t.startswith("P")} == {f"P{k}{h}" for k in range(16) for h in "WE"}
+        for n in g.nodes:
+            if n.kind == "mxm.load_w":
+                blk = int(n.id.split(".")[1][1:].split("k")[0])   # w.n<n>k<k>.lw → n
+                assert n.unit.startswith("mxm.w") == (blk < 8)   # 西侧 plane 只装 n<8 的块
+        # 每个 (n,k) 只属于一个 plane：load_w 数 = Nb × Kb = 256
+        assert sum(n.kind == "mxm.load_w" for n in g.nodes) == 256
+
+    def test_odd_nb_split(self):
+        g = build_gemm(128, 320, 960, tile_m=128, planes=FOUR)    # Nb = 3：n<2 西、n=2 东
+        side = {0: "w", 1: "w", 2: "e"}
+        for n in g.nodes:
+            if n.kind == "mxm.load_w":
+                blk = int(n.id.split(".")[1][1:].split("k")[0])
+                assert n.unit.startswith(f"mxm.{side[blk]}")
+
+    def test_dual_local_placement_kb2(self, m):
+        """双侧 + Kb=2（V=4，不需交替）：P{k}W 在 W、P{k}E 在 E，可调可验。"""
+        from ltsim.backend.chains import build_chains
+        from ltsim.backend.scheduler import schedule
+        g = build_gemm(256, 640, 1280, tile_m=128, planes=FOUR)
+        assert (g.tensors["P0W"].hemisphere, g.tensors["P1E"].hemisphere) == ("W", "E")
+        cg = build_chains(g, m)
+        schedule(cg)
+
+    def test_dual_gemv_schedules(self, m):
+        """GEMV 端到端：auto → alternate，合并链两个池峰值都正好 32，不再报流宽。"""
+        from ltsim.backend.bounds import compute_bounds
+        from ltsim.backend.chains import build_chains
+        from ltsim.backend.metrics import resource_usage
+        from ltsim.backend.scheduler import schedule
+        g = _gemv(planes=FOUR)
+        assert (g.tensors["P0W"].hemisphere, g.tensors["P1W"].hemisphere) == ("W", "E")
+        cg = build_chains(g, m)
+        p = schedule(cg)
+        u = resource_usage(cg, p)
+        assert u["srf.W2E.W"]["peak"] == 32 and u["srf.E2W.E"]["peak"] == 32
+        b = compute_bounds(cg, p)
+        assert b.total >= b.lb
+        # 同形状只用西侧 2 个 MXM 的对照：交替放置让它可行，但比 4 个 MXM 慢
+        g2 = _gemv()
+        cg2 = build_chains(g2, m)
+        b2 = compute_bounds(cg2, schedule(cg2))
+        assert b.total < b2.total
+
+
+class TestPartialPlacement:
+    def test_auto_local_when_narrow(self):
+        g = build_gemm(256, 640, 640, tile_m=128, banks="single")  # Kb=2，V=4：8 条流就够
+        assert {t.hemisphere for nm, t in g.tensors.items() if nm.startswith("P")} == {"W"}
+
+    def test_auto_alternate_single_side(self):
+        g = _gemv()                                                # 默认 planes 全在西侧
+        hemi = {k: g.tensors[f"P{k}"].hemisphere for k in range(16)}
+        assert hemi == {k: ("W" if k % 2 == 0 else "E") for k in range(16)}
+
+    def test_default_equals_explicit_local_when_narrow(self):
+        a = json.dumps(_to_dict(build_gemm(256, 640, 640, tile_m=128)))
+        b = json.dumps(_to_dict(build_gemm(256, 640, 640, tile_m=128, p_placement="local")))
+        assert a == b
+
+    def test_local_still_raises_width(self, m):
+        from ltsim.backend.chains import build_chains
+        g = _gemv(p_placement="local")
+        with pytest.raises(LTSError, match="LTS-E-SRF-WIDTH"):
+            build_chains(g, m)

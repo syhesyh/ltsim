@@ -1,13 +1,13 @@
 {
-  "schema": "lts-result/0.1",
-  "total_cycles": 826,
+  "schema": "lts-result/0.2",
+  "total_cycles": 754,
   "bounds": {
-    "path": 773,
+    "path": 754,
     "resource": 512,
     "resource_exact": "512",
     "resource_name": "mxm.w0.compute",
-    "lb": 773,
-    "gap": 0.068564,
+    "lb": 754,
+    "gap": 0.0,
     "mxm_roofline": 256.0
   },
   "chains": [
@@ -24,9 +24,9 @@
     },
     {
       "id": "c1",
-      "start": 303,
+      "start": 277,
       "len": 48,
-      "end": 351,
+      "end": 325,
       "rate": 16.0,
       "rate_exact": "16",
       "bound_by": {
@@ -52,48 +52,60 @@
     },
     {
       "id": "c3",
-      "start": 330,
+      "start": 277,
       "len": 48,
-      "end": 378,
+      "end": 325,
       "rate": 16.0,
       "rate_exact": "16",
       "bound_by": {
-        "kind": "resource",
-        "resource": "srf.E2W",
-        "blocker": "c1"
+        "kind": "edge",
+        "edge": [
+          "order",
+          "m1n1k0.acc",
+          "w.n1k1.lw"
+        ],
+        "from_chain": "c10"
       }
     },
     {
       "id": "c4",
-      "start": 47,
+      "start": 21,
       "len": 190,
-      "end": 237,
+      "end": 211,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
-        "kind": "resource",
-        "resource": "srf.E2W",
-        "blocker": "c0"
+        "kind": "edge",
+        "edge": [
+          "state",
+          "w.n0k0.lw",
+          "m0n0k0.acc"
+        ],
+        "from_chain": "c0"
       }
     },
     {
       "id": "c5",
-      "start": 350,
+      "start": 298,
       "len": 190,
-      "end": 540,
+      "end": 488,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
-        "kind": "resource",
-        "resource": "srf.E2W",
-        "blocker": "c1"
+        "kind": "edge",
+        "edge": [
+          "state",
+          "w.n0k1.lw",
+          "m0n0k1.acc"
+        ],
+        "from_chain": "c1"
       }
     },
     {
       "id": "c6",
-      "start": 175,
+      "start": 149,
       "len": 190,
-      "end": 365,
+      "end": 339,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
@@ -108,9 +120,9 @@
     },
     {
       "id": "c7",
-      "start": 478,
+      "start": 426,
       "len": 190,
-      "end": 668,
+      "end": 616,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
@@ -125,22 +137,26 @@
     },
     {
       "id": "c8",
-      "start": 47,
+      "start": 21,
       "len": 190,
-      "end": 237,
+      "end": 211,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
-        "kind": "resource",
-        "resource": "srf.E2W",
-        "blocker": "c0"
+        "kind": "edge",
+        "edge": [
+          "state",
+          "w.n1k0.lw",
+          "m0n1k0.acc"
+        ],
+        "from_chain": "c2"
       }
     },
     {
       "id": "c9",
-      "start": 351,
+      "start": 298,
       "len": 190,
-      "end": 541,
+      "end": 488,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
@@ -155,9 +171,9 @@
     },
     {
       "id": "c10",
-      "start": 175,
+      "start": 149,
       "len": 190,
-      "end": 365,
+      "end": 339,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
@@ -172,9 +188,9 @@
     },
     {
       "id": "c11",
-      "start": 479,
+      "start": 426,
       "len": 190,
-      "end": 669,
+      "end": 616,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
@@ -189,9 +205,9 @@
     },
     {
       "id": "c12",
-      "start": 540,
+      "start": 469,
       "len": 157,
-      "end": 697,
+      "end": 626,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
@@ -206,9 +222,9 @@
     },
     {
       "id": "c13",
-      "start": 668,
+      "start": 597,
       "len": 157,
-      "end": 825,
+      "end": 754,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
@@ -223,9 +239,9 @@
     },
     {
       "id": "c14",
-      "start": 541,
+      "start": 469,
       "len": 157,
-      "end": 698,
+      "end": 626,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
@@ -240,9 +256,9 @@
     },
     {
       "id": "c15",
-      "start": 669,
+      "start": 597,
       "len": 157,
-      "end": 826,
+      "end": 754,
       "rate": 1.0,
       "rate_exact": "1",
       "bound_by": {
@@ -274,16 +290,16 @@
     {
       "id": "w.n0k1.rd",
       "chain": "c1",
-      "start": 303,
-      "issue_end": 323,
-      "done": 324
+      "start": 277,
+      "issue_end": 297,
+      "done": 298
     },
     {
       "id": "w.n0k1.lw",
       "chain": "c1",
-      "start": 312,
-      "issue_end": 332,
-      "done": 351
+      "start": 286,
+      "issue_end": 306,
+      "done": 325
     },
     {
       "id": "w.n1k0.rd",
@@ -302,296 +318,296 @@
     {
       "id": "w.n1k1.rd",
       "chain": "c3",
-      "start": 330,
-      "issue_end": 350,
-      "done": 351
+      "start": 277,
+      "issue_end": 297,
+      "done": 298
     },
     {
       "id": "w.n1k1.lw",
       "chain": "c3",
-      "start": 339,
-      "issue_end": 359,
-      "done": 378
+      "start": 286,
+      "issue_end": 306,
+      "done": 325
     },
     {
       "id": "m0n0k0.x.rd",
       "chain": "c4",
-      "start": 47,
-      "issue_end": 175,
-      "done": 176
+      "start": 21,
+      "issue_end": 149,
+      "done": 150
     },
     {
       "id": "m0n0k0.acc",
       "chain": "c4",
-      "start": 56,
-      "issue_end": 184,
-      "done": 209
+      "start": 30,
+      "issue_end": 158,
+      "done": 183
     },
     {
       "id": "m0n0k0.wr",
       "chain": "c4",
-      "start": 89,
-      "issue_end": 217,
-      "done": 237
+      "start": 63,
+      "issue_end": 191,
+      "done": 211
     },
     {
       "id": "m0n0k1.x.rd",
       "chain": "c5",
-      "start": 350,
-      "issue_end": 478,
-      "done": 479
+      "start": 298,
+      "issue_end": 426,
+      "done": 427
     },
     {
       "id": "m0n0k1.acc",
       "chain": "c5",
-      "start": 359,
-      "issue_end": 487,
-      "done": 512
+      "start": 307,
+      "issue_end": 435,
+      "done": 460
     },
     {
       "id": "m0n0k1.wr",
       "chain": "c5",
-      "start": 392,
-      "issue_end": 520,
-      "done": 540
+      "start": 340,
+      "issue_end": 468,
+      "done": 488
     },
     {
       "id": "m1n0k0.x.rd",
       "chain": "c6",
-      "start": 175,
-      "issue_end": 303,
-      "done": 304
+      "start": 149,
+      "issue_end": 277,
+      "done": 278
     },
     {
       "id": "m1n0k0.acc",
       "chain": "c6",
-      "start": 184,
-      "issue_end": 312,
-      "done": 337
+      "start": 158,
+      "issue_end": 286,
+      "done": 311
     },
     {
       "id": "m1n0k0.wr",
       "chain": "c6",
-      "start": 217,
-      "issue_end": 345,
-      "done": 365
+      "start": 191,
+      "issue_end": 319,
+      "done": 339
     },
     {
       "id": "m1n0k1.x.rd",
       "chain": "c7",
-      "start": 478,
-      "issue_end": 606,
-      "done": 607
+      "start": 426,
+      "issue_end": 554,
+      "done": 555
     },
     {
       "id": "m1n0k1.acc",
       "chain": "c7",
-      "start": 487,
-      "issue_end": 615,
-      "done": 640
+      "start": 435,
+      "issue_end": 563,
+      "done": 588
     },
     {
       "id": "m1n0k1.wr",
       "chain": "c7",
-      "start": 520,
-      "issue_end": 648,
-      "done": 668
+      "start": 468,
+      "issue_end": 596,
+      "done": 616
     },
     {
       "id": "m0n1k0.x.rd",
       "chain": "c8",
-      "start": 47,
-      "issue_end": 175,
-      "done": 176
+      "start": 21,
+      "issue_end": 149,
+      "done": 150
     },
     {
       "id": "m0n1k0.acc",
       "chain": "c8",
-      "start": 56,
-      "issue_end": 184,
-      "done": 209
+      "start": 30,
+      "issue_end": 158,
+      "done": 183
     },
     {
       "id": "m0n1k0.wr",
       "chain": "c8",
-      "start": 89,
-      "issue_end": 217,
-      "done": 237
+      "start": 63,
+      "issue_end": 191,
+      "done": 211
     },
     {
       "id": "m0n1k1.x.rd",
       "chain": "c9",
-      "start": 351,
-      "issue_end": 479,
-      "done": 480
+      "start": 298,
+      "issue_end": 426,
+      "done": 427
     },
     {
       "id": "m0n1k1.acc",
       "chain": "c9",
-      "start": 360,
-      "issue_end": 488,
-      "done": 513
+      "start": 307,
+      "issue_end": 435,
+      "done": 460
     },
     {
       "id": "m0n1k1.wr",
       "chain": "c9",
-      "start": 393,
-      "issue_end": 521,
-      "done": 541
+      "start": 340,
+      "issue_end": 468,
+      "done": 488
     },
     {
       "id": "m1n1k0.x.rd",
       "chain": "c10",
-      "start": 175,
-      "issue_end": 303,
-      "done": 304
+      "start": 149,
+      "issue_end": 277,
+      "done": 278
     },
     {
       "id": "m1n1k0.acc",
       "chain": "c10",
-      "start": 184,
-      "issue_end": 312,
-      "done": 337
+      "start": 158,
+      "issue_end": 286,
+      "done": 311
     },
     {
       "id": "m1n1k0.wr",
       "chain": "c10",
-      "start": 217,
-      "issue_end": 345,
-      "done": 365
+      "start": 191,
+      "issue_end": 319,
+      "done": 339
     },
     {
       "id": "m1n1k1.x.rd",
       "chain": "c11",
-      "start": 479,
-      "issue_end": 607,
-      "done": 608
+      "start": 426,
+      "issue_end": 554,
+      "done": 555
     },
     {
       "id": "m1n1k1.acc",
       "chain": "c11",
-      "start": 488,
-      "issue_end": 616,
-      "done": 641
+      "start": 435,
+      "issue_end": 563,
+      "done": 588
     },
     {
       "id": "m1n1k1.wr",
       "chain": "c11",
-      "start": 521,
-      "issue_end": 649,
-      "done": 669
+      "start": 468,
+      "issue_end": 596,
+      "done": 616
     },
     {
       "id": "m0n0.p0.rd",
       "chain": "c12",
-      "start": 540,
-      "issue_end": 668,
-      "done": 669
+      "start": 469,
+      "issue_end": 597,
+      "done": 598
     },
     {
       "id": "m0n0.p1.rd",
       "chain": "c12",
-      "start": 540,
-      "issue_end": 668,
-      "done": 669
+      "start": 469,
+      "issue_end": 597,
+      "done": 598
     },
     {
       "id": "m0n0.sum",
       "chain": "c12",
-      "start": 543,
-      "issue_end": 671,
-      "done": 675
+      "start": 472,
+      "issue_end": 600,
+      "done": 604
     },
     {
       "id": "m0n0.y.wr",
       "chain": "c12",
-      "start": 549,
-      "issue_end": 677,
-      "done": 697
+      "start": 478,
+      "issue_end": 606,
+      "done": 626
     },
     {
       "id": "m1n0.p0.rd",
       "chain": "c13",
-      "start": 668,
-      "issue_end": 796,
-      "done": 797
+      "start": 597,
+      "issue_end": 725,
+      "done": 726
     },
     {
       "id": "m1n0.p1.rd",
       "chain": "c13",
-      "start": 668,
-      "issue_end": 796,
-      "done": 797
+      "start": 597,
+      "issue_end": 725,
+      "done": 726
     },
     {
       "id": "m1n0.sum",
       "chain": "c13",
-      "start": 671,
-      "issue_end": 799,
-      "done": 803
+      "start": 600,
+      "issue_end": 728,
+      "done": 732
     },
     {
       "id": "m1n0.y.wr",
       "chain": "c13",
-      "start": 677,
-      "issue_end": 805,
-      "done": 825
+      "start": 606,
+      "issue_end": 734,
+      "done": 754
     },
     {
       "id": "m0n1.p0.rd",
       "chain": "c14",
-      "start": 541,
-      "issue_end": 669,
-      "done": 670
+      "start": 469,
+      "issue_end": 597,
+      "done": 598
     },
     {
       "id": "m0n1.p1.rd",
       "chain": "c14",
-      "start": 541,
-      "issue_end": 669,
-      "done": 670
+      "start": 469,
+      "issue_end": 597,
+      "done": 598
     },
     {
       "id": "m0n1.sum",
       "chain": "c14",
-      "start": 544,
-      "issue_end": 672,
-      "done": 676
+      "start": 472,
+      "issue_end": 600,
+      "done": 604
     },
     {
       "id": "m0n1.y.wr",
       "chain": "c14",
-      "start": 550,
-      "issue_end": 678,
-      "done": 698
+      "start": 478,
+      "issue_end": 606,
+      "done": 626
     },
     {
       "id": "m1n1.p0.rd",
       "chain": "c15",
-      "start": 669,
-      "issue_end": 797,
-      "done": 798
+      "start": 597,
+      "issue_end": 725,
+      "done": 726
     },
     {
       "id": "m1n1.p1.rd",
       "chain": "c15",
-      "start": 669,
-      "issue_end": 797,
-      "done": 798
+      "start": 597,
+      "issue_end": 725,
+      "done": 726
     },
     {
       "id": "m1n1.sum",
       "chain": "c15",
-      "start": 672,
-      "issue_end": 800,
-      "done": 804
+      "start": 600,
+      "issue_end": 728,
+      "done": 732
     },
     {
       "id": "m1n1.y.wr",
       "chain": "c15",
-      "start": 678,
-      "issue_end": 806,
-      "done": 826
+      "start": 606,
+      "issue_end": 734,
+      "done": 754
     }
   ],
   "resources": [
@@ -615,17 +631,17 @@
       "id": "mem.W.rd",
       "kind": "counter",
       "cap": 44,
-      "busy": 763,
+      "busy": 723,
       "peak": 32,
-      "utilization": 0.176095
+      "utilization": 0.192911
     },
     {
       "id": "mem.W.wr",
       "kind": "counter",
       "cap": 44,
-      "busy": 670,
+      "busy": 650,
       "peak": 16,
-      "utilization": 0.169051
+      "utilization": 0.185194
     },
     {
       "id": "mxm.e0.compute",
@@ -665,7 +681,7 @@
       "cap": 1,
       "busy": 512,
       "peak": 1,
-      "utilization": 0.619855
+      "utilization": 0.679045
     },
     {
       "id": "mxm.w0.weight",
@@ -673,7 +689,7 @@
       "cap": 1,
       "busy": 40,
       "peak": 1,
-      "utilization": 0.048426
+      "utilization": 0.05305
     },
     {
       "id": "mxm.w1.compute",
@@ -681,7 +697,7 @@
       "cap": 1,
       "busy": 512,
       "peak": 1,
-      "utilization": 0.619855
+      "utilization": 0.679045
     },
     {
       "id": "mxm.w1.weight",
@@ -689,23 +705,71 @@
       "cap": 1,
       "busy": 40,
       "peak": 1,
-      "utilization": 0.048426
+      "utilization": 0.05305
     },
     {
-      "id": "srf.E2W",
+      "id": "srf.E2W.E",
       "kind": "counter",
       "cap": 32,
-      "busy": 824,
-      "peak": 32,
-      "utilization": 0.250908
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
     },
     {
-      "id": "srf.W2E",
+      "id": "srf.E2W.E.lw",
       "kind": "counter",
       "cap": 32,
-      "busy": 718,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "srf.E2W.W",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 699,
+      "peak": 16,
+      "utilization": 0.1313
+    },
+    {
+      "id": "srf.E2W.W.lw",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 56,
       "peak": 32,
-      "utilization": 0.368039
+      "utilization": 0.074271
+    },
+    {
+      "id": "srf.W2E.E",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "srf.W2E.E.lw",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
+    },
+    {
+      "id": "srf.W2E.W",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 660,
+      "peak": 32,
+      "utilization": 0.352785
+    },
+    {
+      "id": "srf.W2E.W.lw",
+      "kind": "counter",
+      "cap": 32,
+      "busy": 0,
+      "peak": 0,
+      "utilization": 0.0
     },
     {
       "id": "sxm.e",
@@ -727,19 +791,43 @@
       "id": "vxm.alu",
       "kind": "counter",
       "cap": 16,
-      "busy": 257,
+      "busy": 256,
       "peak": 2,
-      "utilization": 0.038741
+      "utilization": 0.04244
     }
   ],
   "srf": {
-    "W2E": {
-      "peak": 32,
-      "avg": 11.77724
+    "srf.E2W.E": {
+      "peak": 0,
+      "avg": 0.0
     },
-    "E2W": {
+    "srf.E2W.E.lw": {
+      "peak": 0,
+      "avg": 0.0
+    },
+    "srf.E2W.W": {
+      "peak": 16,
+      "avg": 4.201592
+    },
+    "srf.E2W.W.lw": {
       "peak": 32,
-      "avg": 8.029056
+      "avg": 2.376658
+    },
+    "srf.W2E.E": {
+      "peak": 0,
+      "avg": 0.0
+    },
+    "srf.W2E.E.lw": {
+      "peak": 0,
+      "avg": 0.0
+    },
+    "srf.W2E.W": {
+      "peak": 32,
+      "avg": 11.289125
+    },
+    "srf.W2E.W.lw": {
+      "peak": 0,
+      "avg": 0.0
     }
   },
   "critical_path": [
@@ -747,10 +835,9 @@
     "c4",
     "c6",
     "c1",
-    "c3",
-    "c9",
-    "c11",
-    "c15"
+    "c5",
+    "c7",
+    "c13"
   ],
   "critical_path_detail": [
     {
@@ -763,18 +850,22 @@
     },
     {
       "chain": "c4",
-      "start": 47,
-      "end": 237,
+      "start": 21,
+      "end": 211,
       "bound_by": {
-        "kind": "resource",
-        "resource": "srf.E2W",
-        "blocker": "c0"
+        "kind": "edge",
+        "edge": [
+          "state",
+          "w.n0k0.lw",
+          "m0n0k0.acc"
+        ],
+        "from_chain": "c0"
       }
     },
     {
       "chain": "c6",
-      "start": 175,
-      "end": 365,
+      "start": 149,
+      "end": 339,
       "bound_by": {
         "kind": "edge",
         "edge": [
@@ -787,8 +878,8 @@
     },
     {
       "chain": "c1",
-      "start": 303,
-      "end": 351,
+      "start": 277,
+      "end": 325,
       "bound_by": {
         "kind": "edge",
         "edge": [
@@ -800,63 +891,167 @@
       }
     },
     {
-      "chain": "c3",
-      "start": 330,
-      "end": 378,
-      "bound_by": {
-        "kind": "resource",
-        "resource": "srf.E2W",
-        "blocker": "c1"
-      }
-    },
-    {
-      "chain": "c9",
-      "start": 351,
-      "end": 541,
+      "chain": "c5",
+      "start": 298,
+      "end": 488,
       "bound_by": {
         "kind": "edge",
         "edge": [
           "state",
-          "w.n1k1.lw",
-          "m0n1k1.acc"
+          "w.n0k1.lw",
+          "m0n0k1.acc"
         ],
-        "from_chain": "c3"
+        "from_chain": "c1"
       }
     },
     {
-      "chain": "c11",
-      "start": 479,
-      "end": 669,
+      "chain": "c7",
+      "start": 426,
+      "end": 616,
       "bound_by": {
         "kind": "edge",
         "edge": [
           "order",
-          "m0n1k1.acc",
-          "m1n1k1.acc"
+          "m0n0k1.acc",
+          "m1n0k1.acc"
         ],
-        "from_chain": "c9"
+        "from_chain": "c5"
       }
     },
     {
-      "chain": "c15",
-      "start": 669,
-      "end": 826,
+      "chain": "c13",
+      "start": 597,
+      "end": 754,
       "bound_by": {
         "kind": "edge",
         "edge": [
           "mem",
-          "m1n1k1.wr",
-          "m1n1.p1.rd"
+          "m1n0k1.wr",
+          "m1n0.p1.rd"
         ],
-        "from_chain": "c11"
+        "from_chain": "c7"
       }
     }
   ],
+  "no_hop_tail": {
+    "total_cycles": 754,
+    "bounds": {
+      "path": 754,
+      "resource": 512,
+      "resource_exact": "512",
+      "resource_name": "mxm.w0.compute",
+      "lb": 754,
+      "gap": 0.0
+    },
+    "critical_path": [
+      "c0",
+      "c4",
+      "c6",
+      "c1",
+      "c5",
+      "c7",
+      "c13"
+    ],
+    "critical_path_detail": [
+      {
+        "chain": "c0",
+        "start": 0,
+        "end": 48,
+        "bound_by": {
+          "kind": "source"
+        }
+      },
+      {
+        "chain": "c4",
+        "start": 21,
+        "end": 211,
+        "bound_by": {
+          "kind": "edge",
+          "edge": [
+            "state",
+            "w.n0k0.lw",
+            "m0n0k0.acc"
+          ],
+          "from_chain": "c0"
+        }
+      },
+      {
+        "chain": "c6",
+        "start": 149,
+        "end": 339,
+        "bound_by": {
+          "kind": "edge",
+          "edge": [
+            "order",
+            "m0n0k0.acc",
+            "m1n0k0.acc"
+          ],
+          "from_chain": "c4"
+        }
+      },
+      {
+        "chain": "c1",
+        "start": 277,
+        "end": 325,
+        "bound_by": {
+          "kind": "edge",
+          "edge": [
+            "order",
+            "m1n0k0.acc",
+            "w.n0k1.lw"
+          ],
+          "from_chain": "c6"
+        }
+      },
+      {
+        "chain": "c5",
+        "start": 298,
+        "end": 488,
+        "bound_by": {
+          "kind": "edge",
+          "edge": [
+            "state",
+            "w.n0k1.lw",
+            "m0n0k1.acc"
+          ],
+          "from_chain": "c1"
+        }
+      },
+      {
+        "chain": "c7",
+        "start": 426,
+        "end": 616,
+        "bound_by": {
+          "kind": "edge",
+          "edge": [
+            "order",
+            "m0n0k1.acc",
+            "m1n0k1.acc"
+          ],
+          "from_chain": "c5"
+        }
+      },
+      {
+        "chain": "c13",
+        "start": 597,
+        "end": 754,
+        "bound_by": {
+          "kind": "edge",
+          "edge": [
+            "mem",
+            "m1n0k1.wr",
+            "m1n0.p1.rd"
+          ],
+          "from_chain": "c7"
+        }
+      }
+    ]
+  },
   "ops": [
     {
       "id": "mm",
       "start": 0,
-      "end": 826
+      "end": 754
     }
   ],
   "diagnostics": []
